@@ -1,0 +1,339 @@
+数据沿用上课使用的数据，没有的可以下载   地址：https://github.com/yt-one/ml-teach/tree/main/datasets
+
+因为随机搜索超参数还没有演示，可以自学做/选做，周一会讲，所以作业周三之前交。
+
+编程作业：
+
+0. 以下作业 要把周五课上的预处理全流程带上 （ColumnTransformer），可以在熟悉了课件里的代码后，考虑自己实现
+    实现要求：      
+  a. 大多数ML算法不期望缺失值, 数字特征中的缺失值将通过用中位数替换它们来估算，。在分类特征中，缺失值将被最常见的类别替换。
+  b. 大多数ML算法只接受数字输入, 类别特征将被独热编码
+  c. 计算并添加一些比率特征：bedrooms_ratio、rooms_per_house和people_per_house。希望这些能更好地与房价中位数相关联
+  d. 添加集群相似性特征。可能比纬度和经度对模型更有用
+  e. 长尾特征被它们的对数取代，因为大多数模型更喜欢具有大致均匀分布或高斯分布的特征。
+  f. 大多数ML算法更喜欢所有特征具有大致相同的尺度, 所有数值特征都将被标准化
+
+
+1. 尝试支持向量机回归器(sklearn.svm.SVR)，用这个模型来做回归。
+     试试这个模型的超参数，例如kernel="linear"，kernel="rbf"，不同的kernel选择下也会有不同的超参数​。  分别用GridSearchCV和RandomizedSearchCV探索性能最优（交叉验证后的预测表现最好）的超参数
+
+     请注意，支持向量机不能扩展到大型数据集，因此应该仅在训练集的前5000个实例上训练你的模型，并且仅使用3折交叉验证，否则会要运行很久（按小时计）。
+     现在不要担心支持向量机超参数的含义，将在讲支持向量机（SVM）的时候详解
+
+
+# 默认kernel=rbf
+from sklearn.svm import SVR
+svr = make_pipeline(
+    preprocessing,
+    SVR()
+)
+svr.fit(housing[:3000], housing_labels[:3000])
+
+# 流水线
+svr_pipeline = Pipeline([
+    ("preprocessing", preprocessing),
+    ("design_tree", DecisionTreeRegressor(random_state=42))
+])
+
+# 网格验证
+from sklearn.model_selection import GridSearchCV
+param_grid = [
+    {'preprocessing__geo__n_clusters': [4, 6],
+     'design_tree__max_features': [5, 8]}
+]
+grid_search = GridSearchCV(svr_pipeline, param_grid, cv=3,
+                           scoring='neg_root_mean_squared_error')
+grid_search.fit(housing[:3000], housing_labels[:3000])
+
+# 最优参数 kernel = rbf
+{'design_tree__max_features': 6, 'preprocessing__geo__n_clusters': 8}
+
+# 最优参数 kernel = linear
+{'design_tree__max_features': 6, 'preprocessing__geo__n_clusters': 8}
+
+# 最优参数 kernel = poly
+{'design_tree__max_features': 6, 'preprocessing__geo__n_clusters': 8}
+
+# 最优参数 kernel = sigmoid
+{'design_tree__max_features': 6, 'preprocessing__geo__n_clusters': 8}
+
+
+ 
+2. 去了解sklearn里 SelectFromModel的用法，尝试在数据预处理流水线中添加一个SelectFromModel转换器来仅选择最重要的属性。 并用你想尝试的回归模型去训练数据（线性回归/决策树/随机森林）
+
+
+# 预处理数据
+from sklearn.feature_selection import SelectFromModel
+from sklearn.ensemble import RandomForestRegressor
+
+preprocessing = ColumnTransformer([
+    ("bedrooms", ratio_pipeline(), ["total_bedrooms", "total_rooms"]),
+    ("rooms_per_house", ratio_pipeline(), ["total_rooms", "households"]),
+    ("people_per_house", ratio_pipeline(), ["population", "households"]),
+    ("log", log_pipeline, ["total_bedrooms", "total_rooms", "population",
+                               "households", "median_income"]),
+    ("geo", cluster_simil, ["latitude", "longitude"]),
+    ("cat", cat_pipeline, make_column_selector(dtype_include=object))
+],
+    remainder=num_pipeline)
+
+
+# 流水线 
+from sklearn.linear_model import LinearRegression
+sel_feature_pipeline = Pipeline([
+    ("preprocessing", preprocessing),
+    ("feature_sel", SelectFromModel(
+        LinearRegression()
+    )),
+    ("lin_reg", LinearRegression())
+])
+
+# 线性回归跑
+# 网格交叉验证
+from sklearn.model_selection import GridSearchCV
+param_grid = [
+    {'preprocessing__geo__n_clusters': [5, 8, 10],
+     'feature_sel__threshold': ["meadian", 0.25]}
+]
+grid_search = GridSearchCV(sel_feature_pipeline, param_grid, cv=3,
+                           scoring='neg_root_mean_squared_error')
+grid_search.fit(housing, housing_labels)
+
+
+# 线性回归跑 最优参数
+grid_search.best_params_
+
+{'feature_sel__threshold': 0.25, 'preprocessing__geo__n_clusters': 10}
+
+
+
+# 决策树跑 
+from sklearn.linear_model import LinearRegression
+sel_feature_pipeline = Pipeline([
+    ("preprocessing", preprocessing),
+    ("feature_sel", SelectFromModel(
+        DecisionTreeRegressor()
+    )),
+    ("des_tre", DecisionTreeRegressor())
+])
+
+
+from sklearn.model_selection import GridSearchCV
+param_grid = [
+    {'preprocessing__geo__n_clusters': [5, 8, 10],
+     'feature_sel__threshold': ["median", 0.25],
+     'des_tre__max_features': [2, 4]}
+]
+grid_search = GridSearchCV(sel_feature_pipeline, param_grid, cv=3,
+                           scoring='neg_root_mean_squared_error')
+grid_search.fit(housing, housing_labels)
+
+# 最优参数
+{'des_tre__max_features': 4,
+ 'feature_sel__threshold': 'median',
+ 'preprocessing__geo__n_clusters': 10}
+
+
+# 随机森林跑  21分钟8秒
+sel_feature_pipeline = Pipeline([
+    ("preprocessing", preprocessing),
+    ("feature_sel", SelectFromModel(
+        RandomForestRegressor(random_state=35)
+    )),
+    ("random_tre", RandomForestRegressor(random_state=35))
+])
+
+
+from sklearn.model_selection import GridSearchCV
+param_grid = [
+    {'preprocessing__geo__n_clusters': [5, 8],
+     'feature_sel__threshold': ["median", 0.25],
+     'random_tre__max_features': [2, 4]}
+]
+grid_search = GridSearchCV(sel_feature_pipeline, param_grid, cv=3,
+                           scoring='neg_root_mean_squared_error')
+grid_search.fit(housing, housing_labels)
+
+
+# 最优参数如下
+{'feature_sel__threshold': 'median',
+ 'preprocessing__geo__n_clusters': 8,
+ 'random_tre__max_features': 2}
+
+
+3. 周五课堂的随堂练习: .创建一个自定义转换器，在其fit()方法中训练k近邻回归器(sklearn.neighbors.KNeighborsRegressor)，并在其transform()方法中输出模型的预测。然后将此功能添加到预处理流水线，使用纬度和经度作为此转换器的输入。这将在模型中添加一个与最近地区的房价中位数相对应的特征。  添加特征后，用想尝试的回归模型去训练数据。 训练可以采用GridSearchCV和RandomizedSearchCV探索性能最优（交叉验证后的预测表现最好）的超参数
+
+
+# 自定义的转换器
+from sklearn.neighbors import KNeighborsRegressor
+class NearestLabel(BaseEstimator, TransformerMixin):
+    def __init__(self, n_neighbors=5, p=2):
+        self.n_neighbors = n_neighbors
+        self.p = p
+
+    def fit(self, X, y):
+        self.knn_ = KNeighborsRegressor(self.n_neighbors, p=self.p)
+        self.knn_.fit(X, y)
+        return self
+
+    def transform(self, X):
+        return self.knn_.predict(X).reshape(-1, 1)
+
+    def get_feature_names_out(self, names=None):
+        return ["nears"]
+
+nearest_l = NearestLabel()
+nearests = nearest_l.fit_transform(housing[["latitude", "longitude"]], housing_labels)
+nearests.shape
+
+
+
+# 预处理流程
+preprocessing = ColumnTransformer([
+    ("bedrooms", ratio_pipeline(), ["total_bedrooms", "total_rooms"]),
+    ("rooms_per_house", ratio_pipeline(), ["total_rooms", "households"]),
+    ("people_per_house", ratio_pipeline(), ["population", "households"]),
+    ("log", log_pipeline, ["total_bedrooms", "total_rooms", "population",
+                               "households", "median_income"]),
+    ("nea", nearest_l, ["latitude", "longitude"]),
+    ("cat", cat_pipeline, make_column_selector(dtype_include=object))
+],
+    remainder=num_pipeline)
+
+
+
+
+# 跑交叉验证 ：耗时14分钟56秒
+from sklearn.model_selection import GridSearchCV
+
+full_pipeline = Pipeline([
+    ("preprocessing", preprocessing),
+    ("random_forest", RandomForestRegressor(random_state=42)),
+])
+
+
+param_grid = [
+    {'preprocessing__nea__n_neighbors': [5, 8, 10],
+     'random_forest__max_features': [4, 6, 8]},
+    {'preprocessing__nea__n_neighbors': [10, 15],
+     'random_forest__max_features': [6, 8, 10]},
+]
+grid_search = GridSearchCV(full_pipeline, param_grid, cv=3,
+                           scoring='neg_root_mean_squared_error')
+grid_search.fit(housing, housing_labels)
+
+
+
+
+# 最优参数
+{'preprocessing__nea__n_neighbors': 15, 'random_forest__max_features': 6}
+
+
+
+#最优估计器
+Pipeline(steps=[('preprocessing',
+                 ColumnTransformer(remainder=Pipeline(steps=[('simpleimputer',
+                                                              SimpleImputer(strategy='median')),
+                                                             ('standardscaler',
+                                                              StandardScaler())]),
+                                   transformers=[('bedrooms',
+                                                  Pipeline(steps=[('simpleimputer',
+                                                                   SimpleImputer(strategy='median')),
+                                                                  ('functiontransformer',
+                                                                   FunctionTransformer(feature_names_out=<function ratio_name at 0x000001F...
+                                                  NearestLabel(n_neighbors=15),
+                                                  ['latitude', 'longitude']),
+                                                 ('cat',
+                                                  Pipeline(steps=[('simpleimputer',
+                                                                   SimpleImputer(strategy='most_frequent')),
+                                                                  ('onehotencoder',
+                                                                   OneHotEncoder(handle_unknown='ignore'))]),
+                                                  <sklearn.compose._column_transformer.make_column_selector object at 0x000001FCC45E5240>)])),
+                ('random_forest',
+                 RandomForestRegressor(max_features=6, random_state=42))])
+
+
+
+
+
+4. 从头开始再次实现StandardScalerClone类（对数据做标准化），然后添加对inverse_transform()方法的支持：执行scaler.inverse_transform(scaler.fit_transform(X))应该返回一个非常接近X的数组。
+       然后添加对特征名称的支持：如果输入是DataFrame，则在fit()方法中设置feature_names_in_。该属性类型是NumPy数组，存列的名字。
+       最后，实现get_feature_names_out()方法：这个方法应该有一个可选的input_features=None参数。如果传了这个参数，这个方法应检查其长度是否匹配n_features_in_，如果有feature_names_in_属性，则应匹配feature_names_in_的长度，然后应返回input_features。
+       如果input_features为None，则该方法应返回feature_names_in_（如果有这个属性）​，否则返回长度为n_features_in_的   np.array(["x0"，"x1"，"x2", ...])。
+
+
+# 标准化类
+
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.utils.validation import check_array, check_is_fitted
+import numpy as np
+class StandardScalerClone(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        ...
+
+    def fit(self, X, y=None):
+        if hasattr(X, "columns"):       # 如果是pandas DataFrame
+            self.feature_names_in_ = np.array(X.columns)
+        else:
+            self.feature_names_in_ = None
+
+        X = check_array(X)
+        self.mean_ = X.mean(axis=0)
+        self.std_ = X.std(axis=0)
+        self.n_features_in_ = X.shape[1]
+
+
+        return self
+
+    def transform(self, X):
+        check_is_fitted(self)
+        X = check_array(X)
+        return (X - self.mean_) / self.std_
+
+    def inverse_transform(self, X):
+        diff = np.ptp(X)
+        if diff < 7:
+            return (X * self.std_) + self.mean_
+        return f"数据未标准化"
+
+    def get_feature_names_out(self, input_features=None):
+        check_is_fitted(self)
+        if input_features is None:
+            if hasattr(self, 'feature_names_in_') and self.feature_names_in_ is not None:
+                input_features = self.feature_names_in_  # 使用正确的属性名
+            else:
+                input_features = np.array(["x" + str(i) for i in range(self.n_features_in_)])
+        elif len(input_features) != self.n_features_in_:
+            raise ValueError("输入特征名与原本特征数量不等长")
+        return input_features
+
+
+
+# 测试用例
+# 输入的是DataFrame
+df2 = pd.DataFrame(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
+                  columns=['a', 'b', 'c'])
+scal  = StandardScalerClone()
+scal.fit_transform(df2)
+scal.get_feature_names_out()
+array(['a', 'b', 'c'], dtype=object)
+
+
+
+# 输入的不是DataFrame
+x = np.array([[1, 2], [3, 4]])
+scal  = StandardScalerClone()
+scal.fit_transform(x)
+scal.get_feature_names_out()
+array(['x0', 'x1'], dtype='<U2')
+
+
+
+
+
+
+
+
+
+
+
