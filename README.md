@@ -135,6 +135,36 @@
 
 
 
+## softmax_without_sklearn.ipynb
+
+### 1、实验目标
+
+​			在不使用sklearn的情况下，仅使用Numpy，为softmax回归实现批量梯度下降（需带早停策略和 $\ell_2$ 正则化），将它用于分类任务，使用鸢尾花数据集
+
+### 2、数据集
+
+​	使用sklearn中datasets的IRIS数据集，数据集所在包：`from sklearn.datasets import load_iris`
+
+
+
+### 3、实现步骤
+
+​	1.加载数据集（从sklearn库中）
+
+​	2.分离数据集（shuffle + split ）
+
+​	3.实现softmax的损失函数（交叉熵损失）
+
+​	4.计算梯度
+
+​	5.实现批量梯度下降算法
+
+​	6.绘制相关图像（包含损失值关于迭代次数的变化，以及决策边界）
+
+
+
+
+
 
 
 
