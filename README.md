@@ -145,6 +145,27 @@
 
 ​	使用sklearn中datasets的IRIS数据集，数据集所在包：`from sklearn.datasets import load_iris`
 
+​	
+
+**样本数**：150
+
+**特征数**：4
+
+**特征名**：
+
+- sepal length in cm  花萼长度
+- sepal width in cm   花萼宽度
+- petal length in cm   花瓣长度
+- petal width in cm     花瓣宽度
+
+**类别——样本数**：
+
+- Setosa  -- 50
+- Versicolour -- 50
+- Virginica -- 50
+
+
+
 
 
 ### 3、实现步骤
@@ -162,6 +183,66 @@
 ​	6.绘制相关图像（包含损失值关于迭代次数的变化，以及决策边界）
 
 
+
+
+
+## wine_svm.ipynb
+
+### 1、实验目标
+
+训练一个分类模型，该模型能够根据葡萄酒的化学分析预测种植者。
+
+
+
+### 2、数据集
+
+使用的是sklearn库中的葡萄酒数据集，使用`from sklearn.datasets import load_wine`来加载
+
+
+
+**样本数**：178
+
+**特征数**：13
+
+**特征名**：
+
+- Alcohol
+- Malic acid
+- Ash
+- Alcalinity of ash
+- Magnesium
+- Total phenols
+- Flavanoids
+- Nonflavanoid phenols
+- Proanthocyanins
+- Color intensity
+- Hue
+- OD280/OD315 of diluted wines
+- Proline
+
+
+
+**类别——样本数:**
+
+- class_0 -- 59
+- class_1 -- 71
+- class_2 -- 48
+
+
+
+
+
+### 3、实现步骤
+
+1.加载数据集
+
+2.分离数据集
+
+3.数据集预处理（填充缺失值、标准化等操作）
+
+4.使用流水线去拟合数据
+
+5.分类模型评估：计算模型的准确率
 
 
 
