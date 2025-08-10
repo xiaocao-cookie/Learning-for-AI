@@ -248,5 +248,68 @@
 
 
 
+## gradient_descent_simulate_svc.ipynb
+
+### 1、实验目标
+
+​		自定义SVC，把SVM的分类器（SVC）看成梯度下降来实现。随后将自定义的SVM分类用于 iris data(鸢尾花数据)； 取花瓣长度 和 花瓣宽度特征， 分类 看是不是 分类2（Iris-Virginica）的花
+
+
+
+### 2、数据集
+
+使用sklearn中datasets的IRIS数据集，数据集所在包：`from sklearn.datasets import load_iris`
+
+​	
+
+**样本数**：150
+
+**特征数**：4
+
+**特征名**：
+
+- sepal length in cm  花萼长度
+- sepal width in cm   花萼宽度
+- petal length in cm   花瓣长度
+- petal width in cm     花瓣宽度
+
+**类别——样本数**：
+
+- Setosa  -- 50
+- Versicolour -- 50
+- Virginica -- 50
+
+
+
+### 3、实现步骤
+
+1.加载数据集
+
+2.分离数据集
+
+3.SVM分类器的原理阐释（公式推导，重要！！！）
+
+4.自定义SVC（使用梯度下降模拟，继承自sklearn的BaseEstimator）
+
+5.模型测试与评估
+
+6.绘制相关图像
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
