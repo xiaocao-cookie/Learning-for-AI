@@ -1,4 +1,4 @@
-# homework
+# Learning for AI
 
 ## datasets文件夹
 
