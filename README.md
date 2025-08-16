@@ -6,6 +6,12 @@
 
 
 
+## AI-prepared 文件夹
+
+此文件夹是完成AI项目必需的储备知识，包括Python，NumPy、pandas和docker这些部分
+
+
+
 ## 快速问答.txt
 
 机器学习的一些常见问题
