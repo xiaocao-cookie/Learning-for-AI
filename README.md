@@ -325,7 +325,7 @@
 
 
 
-## minst_mlp.ipynb
+## mnist_mlp.ipynb
 
 在MNIST数据集上训练深度MLP。看看是否可以通过手动调整超参数获得98%以上的精度。
 
