@@ -24,6 +24,10 @@
 
 
 
+## nn_demo 文件夹
+
+此文件夹为神经网络（Neural Network）的demo，这里，我在文件中使用了原生的Python/NumPy库，构建一个基本的softmax回归算法和一个简单的两层神经网络，不使用任何的Keras库的算法。更详细的步骤参见此文件夹下的 *任务说明.ipynb* 文件
+
 
 
 ## 快速问答.txt
