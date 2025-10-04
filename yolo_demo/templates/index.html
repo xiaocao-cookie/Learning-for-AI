@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLO物体检测系统</title>
+    <!-- 引入Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <!-- 引入Font Awesome -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+
+    <!-- 使用精确的 SVG 路径 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512' width='32' height='32'><path fill='%2330ACFE' d='M572.52 241.4C518.29 135.59 410.93 64 288 64S57.68 135.64 3.48 241.41a32.35 32.35 0 0 0 0 29.19C57.71 376.41 165.07 448 288 448s230.32-71.64 284.52-177.41a32.35 32.35 0 0 0 0-29.19zM288 400a144 144 0 1 1 144-144 143.93 143.93 0 0 1-144 144zm0-240a95.31 95.31 0 0 0-25.31 3.79 47.85 47.85 0 0 1-66.9 66.9A95.78 95.78 0 1 0 288 160z'/></svg>" type="image/svg+xml">
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 2rem;
+            max-width: 1200px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 10%, #29eac4 90%);
+            color: ghostwhite;
+            padding: 2rem 0;
+            border-radius: 0.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            letter-spacing: 0.5px;
+        }
+        
+        .header p.lead {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 1.25rem;
+            font-weight: 400;
+            opacity: 0.95;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        .card {
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        }
+        .card-header {
+            background-color: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        .btn-primary:hover {
+            background-color: #5a67d8;
+            border-color: #5a67d8;
+        }
+        .btn-danger {
+            background-color: #f56565;
+            border-color: #f56565;
+        }
+        .btn-danger:hover {
+            background-color: #e53e3e;
+            border-color: #e53e3e;
+        }
+        .image-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0.375rem;
+            border: 1px solid #dee2e6;
+        }
+        .image-container img {
+            width: 100%;
+            height: auto;
+            transition: transform 0.3s ease;
+        }
+        .image-container:hover img {
+            transform: scale(1.05);
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%;
+            overflow: hidden;
+        }
+        .video-container img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .badge {
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1><i class="fa fa-eye"></i> YOLO物体检测系统</h1>
+        <p class="lead">基于预训练YOLO模型的实时物体检测应用</p>
+    </div>
+
+    <!-- 功能选项卡 -->
+    <div class="mb-4">
+        <ul class="nav nav-tabs" id="detectionTabs" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active" id="image-tab" data-bs-toggle="tab" data-bs-target="#image"
+                        type="button" role="tab" aria-controls="image" aria-selected="true">
+                    <i class="fa fa-image"></i> 图像检测
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="video-tab" data-bs-toggle="tab" data-bs-target="#video"
+                        type="button" role="tab" aria-controls="video" aria-selected="false">
+                    <i class="fa fa-video-camera"></i> 实时视频检测
+                </button>
+            </li>
+        </ul>
+    </div>
+
+    <!-- 内容区域 -->
+    <div class="tab-content" id="detectionTabsContent">
+        <!-- 图像检测 -->
+        <div class="tab-pane fade show active" id="image" role="tabpanel" aria-labelledby="image-tab">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header"><i class="fa fa-upload"></i> 图像上传</div>
+                        <div class="card-body">
+                            <form id="uploadForm" enctype="multipart/form-data">
+                                <div class="mb-3">
+                                    <label for="imageFile" class="form-label">选择图像文件</label>
+                                    <input class="form-control" type="file" id="imageFile" name="file" accept="image/*">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="confidenceThreshold" class="form-label">置信度阈值</label>
+                                    <input type="range" class="form-range" min="0.1" max="0.9" step="0.1"
+                                           id="confidenceThreshold" value="0.3">
+                                    <div class="text-center mt-1"><span id="confidenceValue">0.3</span></div>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100" id="uploadBtn">
+                                    <i class="fa fa-search"></i> 开始检测
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header"><i class="fa fa-picture-o"></i> 上传的图像</div>
+                        <div class="card-body">
+                            <div id="uploadedImageContainer" class="image-container" style="display:none;">
+                                <img id="uploadedImage" src="" alt="上传的图像">
+                            </div>
+                            <div id="noImageMessage" class="text-center text-muted py-4">
+                                <i class="fa fa-picture-o fa-5x mb-2"></i>
+                                <p>请上传一张图像进行检测</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 实时视频检测 -->
+        <div class="tab-pane fade" id="video" role="tabpanel" aria-labelledby="video-tab">
+            <div class="card">
+                <div class="card-header"><i class="fa fa-video-camera"></i> 实时视频流检测</div>
+                <div class="card-body">
+                    <form id="videoUploadForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="videoFile" class="form-label">选择视频文件</label>
+                            <input class="form-control" type="file" id="videoFile" name="file" accept="video/*">
+                        </div>
+                        <div class="mb-3">
+                            <label for="videoConfidenceThreshold" class="form-label">置信度阈值</label>
+                            <input type="range" class="form-range" min="0.1" max="0.9" step="0.1"
+                                   id="videoConfidenceThreshold" value="0.3">
+                            <div class="text-center mt-1"><span id="videoConfidenceValue">0.3</span></div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100" id="uploadVideoBtn">
+                            <i class="fa fa-upload"></i> 上传并检测视频
+                        </button>
+                    </form>
+
+                    <div class="text-center mt-3">
+                        <button type="button" class="btn btn-danger" id="useCameraBtn">
+                            <i class="fa fa-camera"></i> 使用摄像头
+                        </button>
+                        <button type="button" class="btn btn-secondary ms-2" id="stopVideoBtn">
+                            <i class="fa fa-stop"></i> 停止检测
+                        </button>
+                        <button type="button" class="btn btn-info ms-2" id="reDetectBtn">
+                            <i class="fa fa-play"></i> 继续检测
+                        </button>
+                        <button type="button" class="btn btn-warning ms-2" id="clearBtn">
+                            <i class="fa fa-trash"></i> 清空检测区域
+                        </button>
+                    </div>
+
+                    <div class="mt-3 text-center text-muted" id="videoSourceInfo"></div>
+                    <div class="video-container mt-3">
+                        <img id="videoStream" class="img-fluid" src="" style="display: none">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 检测结果 -->
+    <div id="results" class="card" style="display: none;">
+        <div class="card-header"><i class="fa fa-check-circle"></i> 检测结果</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="image-container">
+                        <img id="resultImage" src="" alt="检测结果图像">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h4>检测到的物体：</h4>
+                    <div id="detectionList" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    /*
+    * 图像检测部分
+    * */
+
+    // 获取操作对象，通过标签中的ID (getElementById)
+    const confidenceSlider = document.getElementById('confidenceThreshold');
+    const confidenceValue = document.getElementById('confidenceValue');
+    confidenceSlider.addEventListener('input', function () {
+        confidenceValue.textContent = this.value;
+    });
+
+    const imageFile = document.getElementById('imageFile');
+    const uploadedImage = document.getElementById('uploadedImage');
+    const uploadedImageContainer = document.getElementById('uploadedImageContainer');
+    const noImageMessage = document.getElementById('noImageMessage');
+
+    // 图像检测中，选择的文件改变（change）后可在右侧显示
+    imageFile.addEventListener('change', function () {
+        if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                uploadedImage.src = e.target.result;
+                uploadedImageContainer.style.display = 'block';
+                noImageMessage.style.display = 'none';
+            }
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+
+    const uploadForm = document.getElementById('uploadForm');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const resultsDiv = document.getElementById('results');
+    const resultImage = document.getElementById('resultImage');
+    const detectionList = document.getElementById('detectionList');
+
+    // 图像检测选项卡中，点击开始检测后
+    uploadForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 检测中...';
+        const formData = new FormData();
+        formData.append('file', imageFile.files[0]);
+        formData.append('confidence_threshold', confidenceSlider.value);
+        fetch('/', {method: 'POST', body: formData})
+            .then(res => res.json())
+            .then(data => {
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="fa fa-search"></i> 开始检测';
+                if (data.success) {
+                    resultsDiv.style.display = 'block';
+                    resultImage.src = '/outputs/' + data.output_image + '?t=' + new Date().getTime();
+                    detectionList.innerHTML = '';
+                    if (data.detections.length > 0) {
+                        data.detections.forEach(d => {
+                            const item = document.createElement('div');
+                            item.className = 'detection-item';
+                            const confidence = (d.score * 100).toFixed(1);
+                            let cls = 'bg-success';
+                            if (confidence < 50) cls = 'bg-warning';
+                            if (confidence < 30) cls = 'bg-danger';
+                            item.innerHTML = `<div class="d-flex justify-content-between align-items-center">
+                                <div><strong>${d.class}</strong></div>
+                                <span class="badge ${cls} text-white">${confidence}%</span>
+                              </div>
+                              <div class="small text-muted mt-1">
+                                坐标: (${Math.round(d.box[0])}, ${Math.round(d.box[1])}) - (${Math.round(d.box[2])}, ${Math.round(d.box[3])})
+                              </div>`;
+                            detectionList.appendChild(item);
+                        });
+                    } else {
+                        detectionList.innerHTML = '<div class="text-center text-muted py-3"><i class="fa fa-info-circle"></i> 未检测到任何物体</div>';
+                    }
+                } else {
+                    alert('检测失败: ' + data.error);
+                }
+            })
+            .catch(() => {
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="fa fa-search"></i> 开始检测';
+                alert('检测过程中发生错误');
+            });
+    });
+
+
+    /*
+    * 视频检测部分
+    * */
+    const videoConfidenceSlider = document.getElementById('videoConfidenceThreshold');
+    const videoConfidenceValue = document.getElementById('videoConfidenceValue');
+    videoConfidenceSlider.addEventListener('input', function () {
+        videoConfidenceValue.textContent = this.value;
+    });
+
+    const videoUploadForm = document.getElementById('videoUploadForm');
+    const uploadVideoBtn = document.getElementById('uploadVideoBtn');
+    const useCameraBtn = document.getElementById('useCameraBtn');
+    const stopVideoBtn = document.getElementById('stopVideoBtn');
+    const videoSourceInfo = document.getElementById('videoSourceInfo');
+
+
+    //点击上传并检测视频后的操作
+    videoUploadForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const videoFile = document.getElementById('videoFile');
+        if (!videoFile.files || !videoFile.files[0]) {
+            alert('请选择一个视频文件');
+            return;
+        }
+        uploadVideoBtn.disabled = true;
+        uploadVideoBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 上传中...';
+        const formData = new FormData();
+        formData.append('file', videoFile.files[0]);
+        formData.append('confidence_threshold', videoConfidenceSlider.value);
+        fetch('/upload_video', {method: 'POST', body: formData})
+            .then(res => res.json())
+            .then(data => {
+                uploadVideoBtn.disabled = false;
+                uploadVideoBtn.innerHTML = '<i class="fa fa-upload"></i> 上传并检测视频';
+                if (data.success) {
+                    videoSourceInfo.textContent = '正在播放上传的视频并进行实时检测';
+                    document.getElementById('videoStream').src = '/video_feed?t=' + new Date().getTime();
+                    document.getElementById('videoStream').style.display = 'block';
+                } else {
+                    alert('视频上传失败: ' + data.error);
+                }
+            })
+            .catch(() => {
+                uploadVideoBtn.disabled = false;
+                uploadVideoBtn.innerHTML = '<i class="fa fa-upload"></i> 上传并检测视频';
+                alert('上传过程中发生错误');
+            });
+    });
+
+
+    // 使用摄像头
+    if (useCameraBtn) {
+        useCameraBtn.addEventListener('click', function () {
+            fetch('/use_camera', {method: 'POST'})
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        videoSourceInfo.textContent = '实时视频流会使用您的摄像头进行物体检测';
+                        document.getElementById('videoStream').src = '/video_feed?t=' + new Date().getTime();
+                        videoStream.style.display = 'block';
+                    }
+                });
+        });
+    }
+
+    // 停止视频检测
+    if (stopVideoBtn) {
+        stopVideoBtn.addEventListener('click', function () {
+            fetch('/stop_video', {method: 'POST'})
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        videoSourceInfo.textContent = '视频检测已停止';
+                    }
+                });
+        });
+    }
+
+    // 切换选项卡触发的动作
+    const imageTab = document.getElementById('image-tab');
+    const videoTab = document.getElementById('video-tab');
+    const imageResults = document.getElementById('results')
+    const videoStream = document.getElementById('videoStream')
+
+
+    // 点击图像检测的选项卡触发的事件
+    imageTab.addEventListener('click', function() {
+        videoStream.style.display = 'none';
+
+        // 重置视频上传表单
+        videoUploadForm.reset();
+
+        // 特别处理置信度滑块的值（因为reset()可能不会重置range input的显示值）
+        const confidenceThreshold = document.getElementById('videoConfidenceThreshold');
+        const confidenceValue = document.getElementById('videoConfidenceValue');
+
+        // 重置滑块到默认值
+        confidenceThreshold.value = 0.3;
+        confidenceValue.textContent = '0.3';
+
+        // 如果有文件选择的预览或显示，也清除它们
+        const videoFileInput = document.getElementById('videoFile');
+        videoFileInput.value = '';
+
+        videoSourceInfo.textContent = '';
+
+
+});
+
+    // 点击视频检测的选项卡触发的事件
+    videoTab.addEventListener("click", function () {
+        imageResults.style.display = 'none';
+
+        // 重置表单
+        uploadForm.reset();
+
+        // 重置置信度阈值
+        const confidenceThreshold = document.getElementById('confidenceThreshold');
+        const confidenceValue = document.getElementById('confidenceValue');
+        confidenceThreshold.value = 0.3;
+        confidenceValue.textContent = '0.3'
+
+        // 上传的图像部分置空
+        uploadedImageContainer.style.display = 'none';
+        uploadedImage.src = '';
+        noImageMessage.style.display = 'block';
+
+
+    })
+
+
+    const clearBtn = document.getElementById('clearBtn')
+
+    // 清空视频检测区域
+    clearBtn.addEventListener('click', function () {
+        // 隐藏视频流
+        videoStream.style.display = 'none';
+        // 清空视频源信息
+        videoSourceInfo.textContent = '';
+        // 重置视频上传表单
+        videoUploadForm.reset();
+        // 重置置信度滑块到默认值
+        const videoConfidenceThreshold = document.getElementById('videoConfidenceThreshold');
+        const videoConfidenceValue = document.getElementById('videoConfidenceValue');
+        videoConfidenceThreshold.value = 0.3;
+        videoConfidenceValue.textContent = '0.3';
+        // 清空视频文件输入框
+        const videoFileInput = document.getElementById('videoFile');
+        videoFileInput.value = '';
+        
+        // 调用后端清空视频检测状态的API
+        fetch('/clear_video_detection', {method: 'POST'})
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('后端视频检测状态已清空');
+                }
+            })
+            .catch(() => {
+                console.error('清空后端视频检测状态时发生错误');
+            });
+    })
+
+
+    const reDetectBtn = document.getElementById('reDetectBtn');
+
+    // 继续检测视频
+    if (reDetectBtn) {
+        reDetectBtn.addEventListener('click', function () {
+            fetch('/resume_video', {method: 'POST'})
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        // 重新加载视频流，会从停止的位置继续
+                        const videoStreamEl = document.getElementById('videoStream');
+                        videoStreamEl.src = '/video_feed?t=' + new Date().getTime();
+                        videoStreamEl.style.display = 'block';
+                        videoSourceInfo.textContent = '继续进行视频检测';
+                    }
+                })
+                .catch(() => {
+                    alert('继续检测过程中发生错误');
+                });
+        });
+    }
+
+});
+</script>
+</div>
+</body>
+</html>
