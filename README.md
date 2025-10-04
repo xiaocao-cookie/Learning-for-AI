@@ -30,6 +30,12 @@
 
 
 
+## yolo_demo 文件夹
+
+一个基于TensorFlow、Keras和Flask的YOLO2的目标检测的Web应用
+
+
+
 ## 快速问答.txt
 
 机器学习的一些常见问题
