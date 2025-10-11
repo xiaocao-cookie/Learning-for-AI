@@ -36,6 +36,12 @@
 
 
 
+## RNN_Numpy 文件夹
+
+使用NumPy实现RNN（Recurrent Neural Network）和LSTM（Long Short-Term Memory）网络的前向传播过程，里面有相应的测试代码和公式推导
+
+
+
 ## 快速问答.txt
 
 机器学习的一些常见问题
