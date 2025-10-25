@@ -42,6 +42,16 @@
 
 
 
+
+
+## CNN_NumPy文件夹
+
+使用NumPy实现CNN（Convolution Nerual Network）中的卷积层和池化层，里面有相应的测试文件以及说明
+
+
+
+
+
 ## 快速问答.txt
 
 机器学习的一些常见问题
