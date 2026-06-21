@@ -1,0 +1,257 @@
+# Machine Learning
+
+
+```text
+MachineLearning/
+├── datasets/
+│   ├── titanic/
+│   │   ├── test.csv
+│   │   ├── test_augmented.csv
+│   │   ├── test_predict.csv
+│   │   └── train.csv
+│   │
+│   ├── hw1data1.txt
+│   ├── hw1data2.txt
+│   ├── student-mat.csv
+│   └── titanic.tgz
+│
+├── examples/
+│
+├── notebooks/
+│   ├── decision_tree_demo.ipynb
+│   ├── softmax_without_sklearn.ipynb
+│   ├── student_mat_ml.ipynb
+│   ├── titanic-ml.ipynb
+│   └── wine_svm.ipynb
+│
+├── notes/
+│
+└── README.md
+```
+
+## datasets 文件夹
+
+## examples 文件夹
+
+
+## notebooks 文件夹
+
+### decision_tree_demo.ipynb
+
+决策树demo，并使用决策树模拟随机森林
+
+
+### softmax_without_sklearn.ipynb
+
+#### 1、实验目标
+在不使用sklearn的情况下，仅使用Numpy，为softmax回归实现批量梯度下降（需带早停策略和 $\ell_2$ 正则化），将它用于分类任务，使用鸢尾花数据集
+
+#### 2、数据集
+
+使用sklearn中datasets的IRIS数据集，数据集所在包：`from sklearn.datasets import load_iris`
+
+
+**样本数**：150
+
+**特征数**：4
+
+**特征名**：
+
+- sepal length in cm  花萼长度
+- sepal width in cm   花萼宽度
+- petal length in cm   花瓣长度
+- petal width in cm     花瓣宽度
+
+**类别——样本数**：
+
+- Setosa  -- 50
+- Versicolour -- 50
+- Virginica -- 50
+
+
+#### 3、实现步骤
+1. 加载数据集（从sklearn库中）
+2. 分离数据集（shuffle + split ）
+3. 实现softmax的损失函数（交叉熵损失）
+4. 计算梯度
+5. 实现批量梯度下降算法
+6. 绘制相关图像（包含损失值关于迭代次数的变化，以及决策边界）
+
+
+### student_mat_ml.ipynb
+
+#### 1、实验目标
+
+使用线性回归、决策树回归和多项式回归预测学生期末成绩，并比较模型性能。
+
+
+#### 2、数据文件说明
+
+**数据集为datasets中的"学生表现数据集"，student-mat.csv**
+
+**字段说明：**
+
+1. school-学生学校（二元：GP-Gabriel Pereira或MS-Mousinho da Silveira）
+2. sex-学生性别（二元：“F”-女性或“M”-男性）
+3. age-学生的年龄（数字：从15到22）
+4. address-学生的家庭住址类型（二元：“U”-城市或“R”-农村）
+5. famsize-家族规模（二元：“LE3”-小于或等于3或“GT3”-大于3）
+6. Pstatus-父母的同居状态（二元：“T”-同居或“A”-分居）
+7. Medu-母亲的教育（数字：0-无，1-小学教育（4年级），2-5至9年级，3-中等教育或4-高等教育）
+8. Fedu-父亲的教育（数字：0-无，1-小学教育（4年级），2-5至9年级，3-中等教育或4-高等教育）
+9. Mjob-母亲的工作（名义上：“教师”、“与医疗保健有关的”、“公务员”（如行政或警察）、“在家”或“其他”）
+10.  Fjob-父亲的工作（名义上：“教师”、“与医疗保健有关的”、“公务员”（如行政或警察）、“在家”或“其他”）
+11.  reason-选择这所学校的理由（名义上：靠近“家”、学校“声誉”、“课程”偏好或“其他”）
+12. guardian-学生的监护人（名义：“母亲”、“父亲”或“其他”）
+13. traveltime-从家到学校的旅行时间（数字：1-<15分钟，2-15-30分钟，3-30分钟-1小时，或4->1小时）
+14. studytime-每周学习时间（数字：1-<2小时、2-2-2-5小时、3-5-10小时或4->10小时）
+15. failures-过去的挂科次数（如果1<=n<3，则为n，否则为4）
+16. schoolsup-额外教育支持（二元：是或否）
+17. famsup-家庭教育支持（二元：是或否）
+18. paid-额外付费数学或葡萄牙语课程（二元：是或否）
+19. activities-课外活动（二元：是或否）
+20. nursery-就读于托儿所（二元：是或否）
+21.  higher-是否有升学意愿（二元：是或否）
+22. internet-在家上网（二元：是或否）
+23.  romantic-有浪漫关系（二元：是或否）
+24. famrel-家庭关系质量（数字：从1-非常差到5-优秀）
+25.  freetime-放学后的自由时间（数字：从1-非常低到5-非常高）
+26.  goout-与朋友外出（数字：从1-非常低到5-非常高）
+27.  Dalc-工作日饮酒量（数字：从1-非常低到5-非常高）
+28. Walc-周末饮酒量（数字：从1-非常低到5-非常高）
+29. health-当前健康状况（数字：从1-非常差到5-非常好）
+30. absences-旷课次数（数字：从0到93）
+
+
+
+**成绩**
+
+1. G1-第一学期成绩（数字：从0到20）
+2. G2-第二学期成绩（数字：从0到20）
+3. G3-最终成绩（数字：从0到20，输出目标）
+
+
+
+#### 3、实现步骤：
+
+1. 将数据加载到Pandas DataFrame
+2. 分离特征(X)和目标变量(y)
+3. 按80-20划分训练测试集(random_state=42)
+4. 使用StandardScaler标准化特征
+5. 训练以下模型：
+   - 线性回归
+   - 决策树回归
+   - 多项式回归(degree=2)
+6. 计算各模型的MSE分数
+7. 输出评估指标
+
+
+
+### titanic-ml.ipynb
+
+#### 1、实验目标
+
+目标是训练一个可以根据其他列预测Survived（是否存活）列的分类器
+
+#### 2、数据文件说明
+
+- 泰坦尼克号数据集 titanic.tgz，这将提供两个CSV文件，train.csv和test.csv
+
+- test_augmented.csv是测试模型评估好坏的文件
+
+- test_predict.csv是通过模型预测test.csv中的数据生成的文件
+
+
+**字段说明**
+
+- PassengerId  ：  每位乘客的唯一标识符
+- Survived         ：     是否幸存（1：幸存，0：未幸存）
+- Pclass             ：  乘客的舱位等级（1-一等舱，2-二等舱，3-三等舱）
+- Name             ：  姓名
+- Sex                  ：  性别，male,female
+- Age                  :   年龄
+- SibSp              ：  与乘客一起旅行的兄弟姐妹或配偶的数量
+- Parch              ：  与乘客一起旅行的父母或儿童人数
+- Ticket              ：  票证号
+- Fare                ：  票价
+- Cabin              ：  乘客所住的客舱编号
+- Embarked      ：  乘客登船的港口（C-瑟堡（法国），Q-皇后镇（爱尔兰），S-南安普顿（英格兰））
+
+
+
+#### 3、实现步骤
+
+1. 数据加载
+2. 对数据集做预处理（独热编码、缺失值填充、标准缩放）
+3. 使用以下模型训练：
+   - 逻辑回归
+   - 决策树分类
+   - KNN分类
+4. 模型评估：计算每个模型的准确率和F1分数
+
+
+
+#### 4、一些有趣的尝试
+
+- 男性和女性的存活率谁更高
+- 成年、未成年和老年的存活率是否不同
+- 根据乘客随行人员的类别和数量来看存活率是否不同
+
+
+
+### wine_svm.ipynb
+
+#### 1、实验目标
+
+训练一个分类模型，该模型能够根据葡萄酒的化学分析预测种植者。
+
+
+
+#### 2、数据集
+
+使用的是sklearn库中的葡萄酒数据集，使用`from sklearn.datasets import load_wine`来加载
+
+
+
+**样本数**：178
+
+**特征数**：13
+
+**特征名**：
+
+- Alcohol
+- Malic acid
+- Ash
+- Alcalinity of ash
+- Magnesium
+- Total phenols
+- Flavanoids
+- Nonflavanoid phenols
+- Proanthocyanins
+- Color intensity
+- Hue
+- OD280/OD315 of diluted wines
+- Proline
+
+
+
+**类别——样本数:**
+
+- class_0 -- 59
+- class_1 -- 71
+- class_2 -- 48
+
+
+
+#### 3、实现步骤
+
+1.加载数据集
+
+2.分离数据集
+
+3.数据集预处理（填充缺失值、标准化等操作）
+
+4.使用流水线去拟合数据
+
+5.分类模型评估：计算模型的准确率
+
