@@ -521,12 +521,6 @@ $$
 
 ## 三、Transformer
 
-**Transformer 在 Encoder-Decoder 的架构下使用了 <span style="color: red">堆叠的 Self-Attention 和 逐位置的全连接层</span>组件，如下图所示**
-
-<img src=".\resource\transformer_model.png" style="zoom: 50%;" />
-
-
-
 **Transformer 延续了 Encoder-Decoder模式，其基本流程是：**
 $$
 (x_1, x_2, ..., x_n) \xrightarrow{Encoder} \mathbf{z} = (z_1, ..., z_n) \xrightarrow{Decoder} (y_1, y_2,...,y_m)
@@ -547,7 +541,204 @@ $$
 
 
 
-### 1. Self-Attention
+**下面，我们来讲解一下这个图**
+
+<img src=".\resource\transformer_model.png" style="zoom: 50%;" />
+
+
+
+:a: **Encoder：位于图左**
+
+**Encoder 由 $N$（默认 $N=6$） 个相同的层（Layers）组合堆叠而成，每一层都包含两个子层（Sub-layer）：第一个子层是<span style="color: red">多头自注意力机制</span>，第二个子层是<span style="color: red">逐位置的全连接的前馈神经网络</span>。在这两个子层之间，我们应用了残差连接，紧接着又使用了层归一化。这样，每个子层（Sub-layer）的输出就是 **
+$$
+\text{Output}_{Sub-layer} = \text{LayerNorm}(x + \text{Sublayer}(x))
+$$
+**其中：$\text{Sublayer}(x)$ 是由子层 Sub-layer 自己实现的一个函数**
+
+**为了使用残差连接，模型里的所有子层（Sub-layer）和嵌入层都必须产生 $d_{model} $ （默认 $d_{model} = 512$）维度的输出**
+
+**全连接的前馈神经网络 FFN 为：**
+$$
+FFN(x) = \max(0, xW_1 + b_1)W_2 + b_2
+$$
+
+
+
+
+**:b: Decoder：位于图右**
+
+**Decoder 也是由 $N$ （默认 $N=6$）个相同的层（Layers）堆叠起来的。除了在 Encoder 中的那两个子层外，Decoder 还有另一种子层（Sub layer）：它在 Encoder 堆叠的输出之上执行了<span style="color: red"> Masked Multi-head Attention</span>。和 Encoder 相似，每个子层（Sub-layer）也使用了残差连接和层归一化。我们还修改了 Decoder 中的自注意力子层，使得当前位置无法关注后续位置（subsequent position）。通过这种掩码机制，再结合输出的嵌入矩阵向后偏移一个位置的事实，就可以保证位置 $i$ 的预测仅依赖于位置小于 $i$ 的输出**
+
+
+
+
+
+### 1. 位置编码
+
+**在 Transformer 中，因为没有循环和卷积网络，所以为了使模型能够利用Sequence 的顺序信息，我们必须了解一个词在一个序列中的位置信息。为此，我们在 Encoder 和 Decoder 输入的时候加入了 <span style="color: red">Positional encoding</span>，位置编码和嵌入矩阵有着相同的维度**
+
+
+
+在 Transformer 中，使用的是 **Sinusoidal Positional Encoding，即：正弦位置编码**
+
+位置编码定义为：
+$$
+PE(pos, 2i) = \large \sin \left(\frac{pos}{10000^{{2i}/{d_{model}}}}\right) \\ \\
+PE(pos, 2i + 1) = \large \cos \left(\frac{pos}{10000^{{2i}/{d_{model}}}}\right) \\
+$$
+其中：
+
+- $pos$：词元在序列中的位置，例如 $0, 1, 2,, ...$
+- $i$：维度
+- $d_{model}$：模型隐藏层的维度
+
+
+
+选择此位置编码算法的**最重要的原因**是**容易表达相对位置，即：** <span style="color: orange">**对于固定的偏移量 $k$ 来说，$PE(pos + k)$ 可以由 $PE(pos)$ 来表示**</span>，其原理是三角函数的和差公式。
+
+另外，还有**一个原因**，是**<span style="color: orange">不同频率可以表达不同尺度的位置关系</span>**
+
+对于：
+
+- **较小**的 $i$ 来说：$i$ **越小**，分母越小，频率越高，变化的越快，**这样它就能够很敏感的区分相邻的位置**
+- **较大**的 $i$ 来说：$i$ **越大**，分母越大，频率越低，变化的越慢，**就更适合描述大范围的位置变化**
+
+因此，**不同维度共同提供了多种位置尺度**
+
+
+
+<span style="color: #a11420">**这和钟表有些类似：秒针变化的快，分针变化慢，时针变化的更慢，但是多种不同速度的指针组合起来，就可以唯一地描述当前的时间。**</span>
+
+<span style="color: red">**位置编码也一样，它通过多个不同频率的曲线共同表示位置**</span>
+
+
+
+#### # 计算过程示例
+
+当：
+
+$$
+d_{\text{model}}=4
+$$
+
+时，每个词元的位置编码向量有 4 个维度：
+
+$$
+PE(pos)=
+\left[
+PE(pos,0),
+PE(pos,1),
+PE(pos,2),
+PE(pos,3)
+\right]
+$$
+
+此时：
+
+$$
+i=0,1
+$$
+
+因为每个 $i$ 负责一组维度：
+
+- $i=0$ 对应第 $0$、$1$ 维
+- $i=1$ 对应第 $2$、$3$ 维
+
+当 $i=0$ 时：
+
+$$
+PE(pos,0)
+=
+\sin\left(
+\frac{pos}{10000^{0/4}}
+\right)
+=
+\sin(pos)
+$$
+
+$$
+PE(pos,1)
+=
+\cos\left(
+\frac{pos}{10000^{0/4}}
+\right)
+=
+\cos(pos)
+$$
+
+当 $i=1$ 时：
+
+$$
+PE(pos,2)
+=
+\sin\left(
+\frac{pos}{10000^{2/4}}
+\right)
+=
+\sin\left(\frac{pos}{100}\right)
+$$
+
+$$
+PE(pos,3)
+=
+\cos\left(
+\frac{pos}{10000^{2/4}}
+\right)
+=
+\cos\left(\frac{pos}{100}\right)
+$$
+
+因此：
+
+$$
+PE(pos)=
+\left[
+\sin(pos),
+\cos(pos),
+\sin\left(\frac{pos}{100}\right),
+\cos\left(\frac{pos}{100}\right)
+\right]
+$$
+
+例如，当：
+
+$$
+pos=2
+$$
+
+时：
+
+$$
+PE(2)=
+\left[
+\sin(2),
+\cos(2),
+\sin\left(\frac{2}{100}\right),
+\cos\left(\frac{2}{100}\right)
+\right]
+$$
+
+近似结果为：
+
+$$
+PE(2)\approx
+\left[
+0.9093,
+-0.4161,
+0.0200,
+0.9998
+\right]
+$$
+
+
+
+
+
+
+
+### 2. Self-Attention
+
+<img src=".\resource\Scaled_Dot_Product_Attention.png" style="zoom: 33%;" />
 
 自注意力的核心作用是：**让序列中的每个词元，都能够根据当前语境关注同一序列中的其他词元，并融合这些词元的信息，生成新的上下文表示。**
 
@@ -555,7 +746,6 @@ $$
 
 **<span style="color: red">Self-Attention 的公式如下：</span>**
 $$
-
 \boxed{
 \color{red}
 \boldsymbol{
@@ -564,6 +754,48 @@ $$
 }
 $$
 
+$Q,K,V$ 的形状是
+$$
+Q\in\mathbb{R}^{n\times d_k} \\
+K \in \mathbb{R}^{n\times d_k} \\
+V \in \mathbb{R}^{n \times d_v}
+$$
+
+
+上述公式展开之后可以是
+$$
+\operatorname{Self-Attention}(X)
+=
+\operatorname{Softmax}
+\left(
+\frac{(XW_Q)(XW_K)^T}{\sqrt{d_k}}
+\right)
+XW_V
+$$
+再进一步展开
+$$
+\text{Self-Attention}(X) = \operatorname{Self-Attention}(E+P)
+=
+\operatorname{Softmax}
+\left(
+\frac{
+((E+P)W_Q)
+((E+P)W_K)^T
+}{
+\sqrt{d_k}
+}
+\right)
+(E+P)W_V
+$$
+其中：
+
+- $n$ 表示序列中的词元数量
+- $d_k$ 表示单个 $Q$ 或 $K$ 的特征维度
+- $d_v$ 表示 $V$ 的特征维度
+- $X,E,P \in \mathbb{R}^{n \times d_{model}}$ 分别表示输入序列矩阵，嵌入矩阵和位置编码矩阵
+
+
+
 
 
 
@@ -571,7 +803,28 @@ $$
 
 **:one: $Q,K,V$  是什么？它们是怎么来的？**
 
-**:a: 是什么**
+**:a: $Q,K,V$ 分别是什么？**
+
+在 **Self-Attention** 中，每个输入序列 $X$ 会产生 $Q,K,V$ 矩阵：
+$$
+Q,K,V \leftarrow X
+$$
+**虽然，它们来自于同一个输入序列，但是 $ Q,K,V $ 承担着不同的作用**
+
+- **$Q$（Query） 表示当前词元想寻找什么信息**
+
+- **$K$（Key）表示当前词元可以和什么查询（Query）匹配**
+- **$V$（Value）表示当前词元实际提供的是什么信息**
+
+**这就是 $Q,K,V$的直觉理解**
+
+
+
+
+
+**:b: $Q,K,V$ 的来源**
+
+$Q,K,V$ 不是人为提前定义好的，它们是由输入向量（矩阵） $X$ 经过三个不同的**线性变换**得到的，如下所示
 $$
 Q = XW^Q \\
 K = XW^K \\
@@ -590,24 +843,6 @@ X = E + P
 $$
 
 
-**:b: 来源**
-
-在 **Self-Attention** 中，$Q,K,V$ 均来自一个输入序列 $X$：
-$$
-Q,K,V \leftarrow X
-$$
-**虽然，它们来自于同一个输入序列，但是 $ Q,K,V $ 承担着不同的作用**
-
-- **$Q$（Query） 表示当前词元想寻找什么信息，**
-
-- **$K$（Key）表示当前词元可以和什么查询（Query）匹配**
-- **$V$（Value）表示当前词元实际提供的是什么信息**
-
-**这就是 $Q,K,V$的直觉理解**
-
-
-
-
 
 
 
@@ -615,6 +850,13 @@ $$
 
 **:two: $\sqrt{d_k}$ 是什么? 为什么要有？**
 
+Transformer 使用的相关性分数不是简单的 $QK^T$，而是：
+$$
+\frac{QK^T}{\sqrt{d_k}}
+$$
+其中，**$d_k$ 是 $Query$ 和 $Key$ 的特征维度，也就是 $Q$ 的列数或者说 $K^T$ 的行数**
+
+当向量维度较大时，点积结果的绝对值容易变得很大，将较大的数送入 $Softmax$ ，可能会是概率分布过于极端，例如，$[0.001, 0.001, 0.998]$，这会导致 $Softmax$ 梯度较大或较小，不利于模型训练。除以 $\sqrt{d_k}$ 后，可以控制分数的数值范围，使训练更加稳定，这种机制称为**<span style="color: red">缩放点积注意力</span>**
 
 
 
@@ -622,24 +864,70 @@ $$
 
 
 
+### 3. Multi-Head Attention
 
-### 2. Multi-Head Attention
+<img src=".\resource\Multi_Head_Attention.png" style="zoom:33%;" />
+
+**多头注意力是<span style="color: red">将 $Q,K,V$ 分别投影 $h$ 次，将其投影到多个不同的子空间，我们并行的计算每个子空间中的 Attention，之后将这些输出拼接起来，再次进行投影，最终得到最后的输出值。</span>**
+
+**其公式如下：**
+$$
+\color{red}
+\boxed{
+\text{MultiHead Attention}(Q,K,V) = \text{Concat}(head_1, ..., head_h)W^O 
+}
+$$
+**其中：**
+$$
+\color{red}
+\boxed{
+head_{\text{i}} = \text{Self-Attention}(QW_i^Q, KW_i^K, VW_i^V)
+}
+$$
 
 
 
+**我们关注一下这个问题，⚠️⚠️⚠️什么是“不同的表示子空间”？**
+
+**假设一个词元原来的向量为：**
+$$
+x \in \mathbb{R}^{d_{model}}
+$$
+**经过不同的投影矩阵（投影 $h$ 次）后，会得到很多不同的表示：**
+$$
+xW^Q_1, xW^Q_1,..., \ xW^Q_h, 
+$$
+**这些向量虽然都来自同一个词元，但包含的信息⚠️侧重点不同⚠️**
+
+**例如，对于 “苹果” 这个词（词元）来说：**
+
+- 一个子空间可能更**关注它<span style="color: orange">作为食物</span>的语义**
+- 一个子空间可能更**关注它<span style="color: orange">与“吃”的关系</span>**
+- 一个子空间可能更**关注它<span style="color: orange">与前后词元的位置关系</span>**
+- 一个子空间可能更**关注它<span style="color: orange">是名词还是动词</span>**
 
 
-### 3. 位置编码
+
+**在 Transformer 中，多头注意力以三种不同的方式使用：**
+
+- **<span style="color: red">Cross-Attention：</span>在 "encoder-decoder attention" 连接的地方，$Q$ 矩阵来源于之前 decoder 层的输出，而 $K,V$ 来自于 encoder 的输出。这样，decoder  的每个位置就能关注到输入序列中的所有位置。这种机制就类似于典型的 Seq2Seq 模型的 encoder-decoder 注意力一样**
+- **<span style="color: red">Encoder Self-Attention：</span>Encoder 包含 Self-Attention 层，在 Self-Attention 中，$Q,K,V$ 均来自于 Encoder 中的上一层的输出。这样，Encoder 的每个位置就可以关注 Encoder 上一层的所有位置**
+
+- **<span style="color: red">Masked Self-Attention：</span>Decoder 中的 Self-Attention 允许关注 Decoder 中截至当前位置的所有位置。为了保证自回归的特性，我们需要阻止 Decoder 中从右向左的信息流。我们通过在缩放点积注意力中使用掩码来实现这一点，即将 Softmax 输入中所有的非法连接的位置设置为 $-\infty$**
 
 
 
+### 4. 图解 Attention
+
+![](.\resource\Self_Attention_cacl.png)
 
 
-### 4. Encoder 与 Decoder
+
+![](.\resource\Masked_Self_Attention.png)
 
 
 
-### 5. Transformer 的优缺点
+![](.\resource\Multi_Head_Attention_cacl.png)
 
 
 
