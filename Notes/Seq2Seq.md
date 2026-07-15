@@ -519,7 +519,7 @@ $$
 
 
 
-## 三、Transformer
+## 三、Transformer（2017）
 
 **Transformer 延续了 Encoder-Decoder模式，其基本流程是：**
 $$
@@ -736,7 +736,7 @@ $$
 
 
 
-### 2. Self-Attention
+### 2. Scaled Dot-Product Attention
 
 <img src=".\resource\Scaled_Dot_Product_Attention.png" style="zoom: 33%;" />
 
@@ -744,7 +744,7 @@ $$
 
 
 
-**<span style="color: red">Self-Attention 的公式如下：</span>**
+**<span style="color: red">Scaled Dot-Product Attention(Self-Attention) 的公式如下：</span>**
 $$
 \boxed{
 \color{red}
@@ -928,6 +928,30 @@ $$
 
 
 ![](.\resource\Multi_Head_Attention_cacl.png)
+
+
+
+
+
+## 四、Transformer 架构的优化
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
