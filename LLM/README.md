@@ -11,6 +11,17 @@
 最后， notebook 还扩展到句子级文本嵌入、Word2Vec 词嵌入，以及推荐系统中的嵌入应用，展示了 Embedding 不仅可以用于语言模型，也可以用于相似度计算、语义检索和内容推荐等场景。
 
 
+## 02_looking_inside_transformer_LLMs.ipynb
+
+本 notebook 主要介绍 **Transformer 大语言模型的内部结构和文本生成过程**。
+
+内容以 `microsoft/Phi-3-mini-4k-instruct` 为例，演示如何使用 Hugging Face Transformers 加载模型和分词器，并通过文本生成 Pipeline 完成文本续写任务。
+
+随后逐层分析 Phi-3 模型的架构，包括词元嵌入层、Decoder Layer、Self-Attention、MLP、RMSNorm、旋转位置编码以及 `lm_head`，并展示模型如何将输入 token 转换为上下文表示，再映射为整个词表中各个 token 的预测分数。
+
+最后介绍了 **KV-Cache** 的基本作用，通过对比启用和关闭 KV-Cache 时的文本生成速度，说明它如何复用已经计算过的 Key 和 Value，从而减少重复计算并提升自回归生成效率。
+
+
 
 ## BPE_with_Python.ipynb
 
