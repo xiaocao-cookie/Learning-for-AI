@@ -935,6 +935,466 @@ $$
 
 ## 四、Transformer 架构的优化
 
+Transformer 的优化方向很多，下面以 **Transformer 内部组件，到整体架构，再到工程实现和应用扩展**这样的顺序来介绍。其中，注意力机制优化、位置表示优化和 Block 优化属于**模型内部的结构**；整体架构优化和参数容量优化属于**模型级设计**；系统与计算优化属于**工程实现**；多模态架构扩展属于**应用范围扩展**。
+
+| 优化分类                   | 典型方案                                                     |
+| -------------------------- | ------------------------------------------------------------ |
+| **注意力机制优化**         | 稀疏注意力：Longformer、BigBird<br />近似注意力：Linformer、Performer、Reformer<br />QKV 结构优化：MQA、GQA、MLA |
+| **位置表示优化**           | 相对位置编码、RoPE、ALiBi                                    |
+| **Transformer Block 优化** | 归一化位置优化：Pre-Norm<br />归一化方法优化：RMSNorm<br />前馈网络优化：SwiGLU、GEGLU |
+| **整体架构优化**           | 长序列记忆机制：Transformer-XL<br />单向生成架构：Decoder-only Transformer<br />混合序列架构：Jamba、Griffin |
+| **参数容量优化**           | 混合专家模型：MoE<br />稀疏专家路由：Switch Transformer<br />细粒度专家结构：DeepSeekMoE |
+| **系统与计算优化**         | 注意力计算优化：FlashAttention<br />KV Cache 管理：PagedAttention<br />请求调度优化：Continuous Batching |
+| **多模态架构扩展**         | 图像理解：Vision Transformer<br />分层视觉建模：Swin Transformer<br />扩散生成：Diffusion Transformer |
+
+
+
+### 1. 内部结构优化
+
+#### 1.1 注意力机制优化
+
+> *内容简介*
+>
+> <span style="color: orange">**`1.1.1` — `1.1.5` 主要解决的是长序列计算问题**</span>
+>
+> <span style="color: orange">**`1.1.6` 主要解决的是KV Cache 占用过大的问题**</span>
+
+
+
+> *<span style="color: #772125">Longformer 与 BigBird 都是稀疏注意力机制</span>*
+
+##### 1.1.1 Longformer
+
+Longformer 将注意力分成两种：**局部窗口注意力** 和 **全局注意力**。
+
+在**局部窗口注意力**中，**每个 Token 只关注附近固定范围内的 token**，这就类似于 word2vec  算法中的 `windows_size`，这样做的好处是：假设窗口大小为 $w$，序列长度为 $n$，则 Attention 计算的复杂度可以由 $O(n^2)$ 变成 $O(nw)$，当 $w \ll n$ 时，则复杂度甚至可以降低到线性复杂度
+
+在**全局注意力**中，它允许**某些特殊的 Token 使用全局注意力，即：关注整个序列**
+
+因此，Longformer 可以概括为：
+$$
+\text{Longformer} = \text{Local Attention} \ + \ \text{Global Attention}
+$$
+**它更适合长文档分类、长文本问答和文档摘要等任务**
+
+
+
+##### 1.1.2 BigBird
+
+BigBird 使用三类注意力链接：
+$$
+\text{BigBird Attention} = \text{Local Attention} \ + \ \text{Random Attention} \ + \ \text{Global Attention} 
+$$
+**Local Attention** 和 **Global Attention** 在介绍 **Longformer** 的时候已经介绍过，我们现在只介绍 **Random Attention**，它**使得某个Token 随机关注部分远距离的 Token,**这样信息可以在不同区域之间传递
+
+
+
+
+
+> *<span style="color: #772125">Linformer、Performer 和 Reformer 都属于近似注意力机制</span>*
+
+##### 1.1.3 Linformer
+
+其核心思想是：**将 Attention 矩阵压缩到更低维度，**这里的假设是低秩的矩阵也会体现出一部分特性
+
+标准的 Attention 中：
+$$
+K, V \in \mathbb{R}^{n \times d}
+$$
+Linformer 使用投影矩阵压缩维度：
+$$
+K' = EK \\
+V' = FV
+$$
+其中：
+$$
+E,F \in \mathbb{R}^{k\times n}, k \ll n
+$$
+则
+$$
+K',V' \in \mathbb{R}^{k \times d}
+$$
+这样，当 $k \ll n$ 时，Attention 的计算量就会很小，本质上也是一种**低秩近似**
+
+
+
+##### 1.1.4 Performer
+
+它的核心思想是：**使用核函数和随机特征映射近似 Attention 的计算**
+
+标准计算为：
+$$
+\text{Attention}(Q,K,V) = \text{Softmax}(\frac{QK^T}{\sqrt{d_k}})V
+$$
+Performer 使用特征映射 $\phi$，将其近似转换为：
+$$
+\text{Attention} = \phi(Q)(\phi(K)^T V)
+$$
+这样，就可以先算 $\phi(K)^T V$ ，之后再左乘 $\phi(Q)$
+
+
+
+
+
+##### 1.1.5 Reformer
+
+Reformer 主要包含两项优化：**LHS Attention** 和 **Reversible Residual Layers**
+
+- LHS（Locality-Sensitive Hashing）Attention：**局部敏感哈希**
+
+它会将相似的 $Q$ 和 $K$ 分配到相同或相近的桶中，这样模型只在同一个桶内计算 Attention，而不是让所有的 token 两两计算。
+
+- Reversible Residual Layers：**可逆残差层**
+
+普通 Transformer 在训练时需要保存每一层的中间激活值，用于反向传播。可逆网络则可以根据后一层结果重新计算前一层结果，因此不需要保存所有层的完整激活值，可以降低训练显存占用。
+
+
+
+
+
+> *<span style="color: #772125">MQA、GQA 和 MLA 都属于 QKV 的结构优化</span>：解决 **<span style="color: red">KV Cache</span>** 过大的问题*
+>
+> 再看这部分之前，我们先来说一个问题：*为什么需要 KV Cache？*
+>
+> **因为**生成第一个 token 时，模型会计算所有历史的 Token 的 $K$ 和 $V$，那么，生成下一个 token 时，历史 Token 的 $K$ 和 $V$ 没有发生变化，没必要重新计算，所以产生了 **KV Cache**。
+>
+> 慢慢的你会发现，随着上下文长度、Transformer 的层数，注意力头的数量等等的增加，KV Cache 还是会快速变大。
+>
+> 所以，为了解决这一痛点，就衍生出了以下三种算法
+
+##### 1.1.6 MQA、GQA 和 MLA
+
+**:one: MQA：Multi-Query Attention 多组查询注意力**
+
+<img src=".\resource\Multi_Query_Attention.png" style="zoom:50%;" />
+
+
+
+**:two: GQA：Grouped-Query Attention，分组查询注意力**
+
+<img src=".\resource\Grouped_Query_Attention.png" style="zoom:50%;" />
+
+
+
+**:three: MLA：Multi-Head Latent Attention，多头隐空间注意力**
+
+<img src=".\resource\Multi_Head_Latent_Attention.png" style="zoom:50%;" />
+
+
+
+
+
+#### 1.2 Positional Encoding 优化
+
+> $q^Tk$ 和 $qk^T$ 本质上都是向量的点积，只不过是向量方向约定不同
+
+##### 1.2.1 相对位置编码
+
+此编码表示的是 token 之间的相对位置，对于位置 $i, j$ 的词元来说，注意力分数为
+$$
+\text{Score}(q, k) = q_i k_j^T + q_i r_{i-j}
+$$
+其中：$r_{i-j}$ 表示位置 $i$ 和位置 $j$ 之间的相对位置向量
+
+这样，位置 $i$ 和 $j$ 对应的词元之间的注意力分数，**不仅仅由二者的内容相关性 $q_i k_j^T $决定，还会受它们的相对距离 $r_{i-j}$ 的影响**
+
+
+
+
+
+##### 1.2.2 RoPE：Rotary Position Embedding
+
+它的核心是**根据位置旋转 $Q$ 和 $K$，**设旋转矩阵为 $R$，对于位置 $m$ 的 $Query$ 和 位置 $n$ 的 $Key$ 来说：
+$$
+q_m = R_m q \\ \\
+k_n = R_n k \\
+$$
+则：
+$$
+\text{Score}(q,k) = q_m^T k_n = q^T R_m^T R_n k
+$$
+又因为旋转矩阵具有如下性质：
+$$
+\color{red}
+R_m^T R_n = R_m^{-1}R_n = R_{n-m}
+$$
+所以
+$$
+\text{Score}(q,k) = q_m^T k_n = q^T \color{red}R_{n-m} \color{black} k
+$$
+这样，**最终的注意力分数也会包含相对位置信息**
+
+
+
+
+
+> 另外，我们来说一下**旋转矩阵**，它描述的是：<span style="color: orange">*一个向量（点）旋转后，其横纵坐标如何变化*</span>
+
+例如：二维旋转矩阵为
+$$
+R = \begin{bmatrix}
+\cos\theta & -\sin\theta \\
+\sin\theta & \cos\theta
+\end{bmatrix}
+$$
+它有一些良好的性质
+
+- 两个向量经过 $R$ 做旋转之后，**向量的长度和夹角保持不变**
+- **正交性：$R^TR = I$**
+- **角度可叠加：$R(\alpha)R(\beta) = R(\alpha + \beta)$**
+
+
+
+
+
+##### 1.2.3 ALiBi：Attention with Linear Bias
+
+它的核心思想是：**在注意力分数中增加与距离相关的惩罚**
+
+公式如下：
+$$
+\text{Score}(q,k) = \frac{q_ik_j^T}{\sqrt{d_k}} - m |i-j|
+$$
+其中：
+
+- $|i -j|$ 表示两个 token 之间的距离
+- $m$ 是一个惩罚因子
+
+因此，**距离越大，惩罚越大，相关性得分也就越小**
+
+
+
+
+
+#### 1.3 Transformer Block 优化
+
+常见的 Transformer Block 优化包括**归一化方式的优化**以及 **FFN 中激活函数的优化**
+
+**:one: Pre-Norm**
+
+原始的 Transformer 使用的层归一化的步骤是：
+$$
+x' = LayerNorm(x + Attention(x))
+$$
+而 **Per-Norm** 是*先*把输入做一次**层归一化**，之后*再计算* Attention 的分数
+$$
+x' = x + Attention(LayerNorm(x))
+$$
+
+
+
+
+**:two: RMS Norm**
+
+RMSNorm（Root Mean Sqaure Layer Normalization）的核心思想是：**通过统一缩放向量的尺度，来将其稳定到某一数值范围，同时保留原方向和维度关系**
+
+其公式为：
+$$
+\operatorname{RMSNorm}(x)
+=
+\frac{x}{\operatorname{RMS}(x)}
+\odot\gamma
+$$
+其中：
+$$
+\text{RMS}(x) =
+\sqrt{
+\frac{1}{d}
+\sum_{i=1}^{d}
+x_i^2
++
+\epsilon
+}
+$$
+
+- $\odot$ 代表逐元素相乘
+- $\vec x$ 表示隐藏状态，$d$ 是 $\vec x$ 的维度
+- $\vec\gamma$ 是可学习的参数，代表着**恢复尺度的自由度**
+- $\epsilon$ 是防止分母为 $0$ 的一个很小的数
+
+
+
+**这里有一个问题要说明，隐藏状态 $x$ 在经过 RMS 缩放后，它的尺度（数值）会变小，这样可能会丢失一些信息或者会限制模型的表达能力，所以，为了在必要的情况下恢复它的信息（尺度），增加了一个可学习的参数 $\gamma$**
+
+
+
+👉🏻*另外，我们来看一个数学细节*
+
+设原始向量 $\vec{x}$ 的均值和方差分别为：
+$$
+\mu=\frac{1}{d}\sum_{i=1}^{d}x_i
+$$
+
+$$
+\sigma^2=\frac{1}{d}\sum_{i=1}^{d}(x_i-\mu)^2
+$$
+
+
+
+经过缩放后的 $x'$ 等于
+$$
+x' = \frac{x}{\text{RMS}(x)}
+$$
+其均值和方差为：
+$$
+\mu' = \frac{\mu}{\sqrt{\sigma^2+\mu^2+\epsilon}} \\ \\
+\sigma'^2 =\frac{\sigma^2}{\sigma^2+\mu^2+\epsilon}
+$$
+**之后，我们计算一下均值和方差的平方和**
+$$
+\color{red}\boxed{\mu'^2 + \sigma'^2} \color{black} = \frac{\mu^2 + \sigma^2}{\mu^2 + \sigma^2 + \epsilon} \color{red}\boxed{\approx 1}
+$$
+**<span style="color: red">这是 RMSNorm 最关键的性质，它控制的是这组数据的均值 + 方差的和约等于 `1`</span>**
+
+
+
+
+
+**:three: Swish GLU 和 GE GLU**
+
+先来介绍**门控前馈网络（Gated FFN）**，下面是它和普通 FFN 的对比
+
+<img src=".\resource\FFN_vs_GatedFFN.png" style="zoom:50%;" />
+
+原始 Transformer 的 FFN 表示为：
+$$
+FFN(x) = ReLU(xW_1 + b_1)W_2 + b_2
+$$
+它仅仅是对输入的一次升维和非线性变换，可以总结为：
+$$
+h = \phi(xW_1)
+$$
+**而门控前馈网络会将输入映射为两个分支**
+$$
+g = \phi(xW_g) \\ \\
+v = xW_v
+$$
+**随后再将其投影，公式为：**
+$$
+GatedFFN(x) = [g \odot v]W_o = [\phi(xW_g) \odot (xW_v)]W_o
+$$
+其中：
+
+- **<span style="color: red">$g$ 表示门控分支：决定哪些特征应该被保留还是废弃</span>**
+- **<span style="color: red">$v$ 表示内容分支：用于给模型提供实际传递了那些输入信息</span>**
+- $\phi$ 代表激活函数
+- $W_g,W_v,W_o$ 均为可训练的权重矩阵
+
+另外，<span style="color: #988924">**$g \odot v$ 可以称之为门控线性单元**</span>
+
+
+
+
+
+由此，我们引出了 **GLU（Gated Linear Unit），门控线性单元**
+
+**经典的 GLU** 使用的是 **Sigmoid（$\sigma(x)$）** 作为激活函数（门控函数），即
+$$
+GLU(x) = \sigma(xW_g + b_g) \odot (xW_v + b_v)
+$$
+可以把偏置项放进权重矩阵中（在 $x$ 的后面加一列 $1$ 即可），所以，上式也可以写成
+$$
+GLU(x) = \sigma(xW_g) \odot (xW_v)
+$$
+则，**使用经典 GLU 的前馈神经网络就可以这样表示：**
+$$
+GLU\text{-}FFN = [\sigma(xW_g) \odot (xW_v)]W_o
+$$
+其中，$\sigma(·)$ 为 Sigmoid 函数，定义为：
+$$
+\sigma(x) =  \frac{1}{1 + e^{-x}}
+$$
+
+
+
+
+那么，**<span style="color: #558825">Swish GLU</span> 和 <span style="color: #885525">GE GLU</span> 仅仅是改变了对应的激活函数**
+
+**<span style="color: #558825">Swish</span> 激活函数定义为：**
+$$
+Swish_{\beta}(z) = z\sigma(\beta z)
+$$
+**其中，$\sigma$ 为 Sigmoid 函数**
+
+**当 $\beta = 1$ 时，它又称为 $\text{SiLU}$ **
+$$
+\text{SiLU}(z) = z\sigma(z)
+$$
+
+
+**<span style="color: #885525">GE GLU</span> 函数定义为：**
+$$
+GELU(z) = z\Phi(z)
+$$
+ **其中：$\Phi(z)$ 是标准正态分布的累积分布函数，函数定义如下：**
+$$
+\Phi (z)
+=
+P(Z \le z)
+=
+\frac{1}{\sqrt{2\pi}}
+\int_{-\infty}^{z}
+e^{-\frac{t^2}{2}}
+\,dt
+$$
+
+
+<img src=".\resource\GLU_Compare.png" style="zoom:50%;" />
+
+
+
+
+
+
+
+### 2. 整体架构优化
+
+#### 2.1 架构优化
+
+
+
+#### 2.2 参数容量优化
+
+
+
+
+
+### 3. 系统与计算优化
+
+#### 3.1 Flash Attention
+
+
+
+#### 3.2 KV-Cache
+
+
+
+#### 3.3 请求调度优化（Continuous Batching）
+
+
+
+
+
+### 4. 多模态架构扩展
+
+#### 4.1 Vision Transformer：图像理解
+
+
+
+#### 4.2 Swin Transformer：分层视觉建模
+
+
+
+#### 4.3 Diffusion Transformer：扩散生成
+
+
+
+
+
+
+
+
+
 
 
 
