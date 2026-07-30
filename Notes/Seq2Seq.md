@@ -1351,9 +1351,126 @@ $$
 
 #### 2.1 架构优化
 
+##### 2.1.1 Transformer-XL
+
+长文本切块时，它会将文本切成多个片段，如果每个片段独立处理，会产生上下文割裂
+
+Transformer-XL 引入片段级的循环机制，当前片段的 $K$ 和 $V$ 可以同时来自同一个隐藏状态 $\tilde{H}$
+$$
+\tilde{H} = [\text{StopGrad}(H_{previous});H_{current}]
+$$
+这样，计算 Attention 的时候就会带有之前片段的信息，而 $Q$ 主要来自当前片段
+
+
+
+
+
+##### 2.1.2 Jamba
+
+$$
+\boxed{Jamba = Mamba + Attention  + MoE}
+$$
+
+下面，我们分别讲述一下 **Mamba** 和 **MoE**
+
+**:one: Mamba**
+
+**Mamba **是一种基于**选择性状态空间模型（Selective State Space Model，Selective SSM）**的序列建模架构
+
+它的核心目标是：**在不使用标准的 Self-Attention 的情况下，高效处理长序列，同时具备根据输入内容选择性记忆和遗忘信息的能力**
+
+下面这两个公式可以描述为**离散时间状态空间模型**，即：**将上一时刻的记忆和当前输入结合，得到新的记忆，再从新记忆中读取当前输出**
+
+$$
+h_t = \bar{A} h_{t-1} + \bar{B} x_t \\ \\
+y_t = Ch_t
+$$
+
+其中：
+
+- $x_t$ 表示第 $t$ 个时刻的输入
+- $h_{t-1}$ 表示第 $t-1$ 时刻（上一时刻）的隐藏状态，$h_t$ 同理
+- $y_t$ 表示第 $t$ 时刻的输出
+- **$\bar{A}$ 表示离散状态转移矩阵，控制历史信息如何保留和衰减**
+- **$\bar{B}$ 表示离散输入矩阵，控制当前输入如何写入状态**
+- **$C$ 表示输出矩阵，控制从隐藏状态中读取什么信息**
+
+
+
+**$\mathbf{\bar{A}}, \mathbf{\bar{B}}$  的定义如下：**
+$$
+\mathbf{\bar{A}} = f(\Delta, \mathbf{A}) = \Large e^{\Delta \mathbf{A}} \\ \\
+\mathbf{\bar{B}} = f(\Delta, \mathbf{A}, \mathbf{B}) = \large (\Delta \mathbf{A})^{-1}(e^{\Delta \mathbf{A}} - I) \Delta \mathbf{B}
+$$
+
+其中，$\Delta $ 表示**离散化时间步长**，即：连续系统从上一个位置演化到当前位置，经过了多长时间
+
+
+
+**:two: MoE：Mixture of Experts**
+
+**MoE 称为混合专家模型，它的核心思想是：模型内部准备多个“专家网络”，处理一个或一批 Token 时，只选择少数几个“专家”参与计算。这里的“专家”通常不是一个完整的大模型，而是 Transformer 或其他<span style="color: red">架构中的 FFN/MLP 模块的多个并行副本</span>。**
+
+MoE 会把一个 FFN 替换成多个并行的 FFN，同时增加一个 **Router：用来控制由哪个 FFN（专家） 处理当前的 Token**
+
+所以，当处理 Token 时，其流程是
+
+```mermaid
+graph TD
+	Token表示 --> Router --> 计算每个Expert的分数 --> 选择Top-K个Expert并由其处理 --> 加权合并Expert的输出
+```
+
+
+
+在 Jamba 里，Expert 指的主要是多个 MLP/FFN 的 专家，不是多个 Mamba 模块，也不是多个完整的 Transformer 模型。
+
+Jamba 先使用 Mamba 或 Attention 整合上下文，再由 Router 为每个 Token 从多个 MLP 专家中选择少数专家进行处理，从而在保持较低激活计算量的同时扩大模型总容量。
+
+
+
+
+
+
+##### 2.1.3 Griffin
+
+**Griffin 是 Google DeepMind 在 2024 年提出的一种语言模型的架构**。它的核心结构是：**RG-LRU 、Local Attention**。
+
+其中：**RG-LRU（Real-Gated Linear Recurrent Unit，门控线性循环层）负责模型的长期记忆，Local Attention 负责精确处理最近的上下文，**
+
+
+
 
 
 #### 2.2 参数容量优化
+
+参数容量优化主要解决一个问题：**如何增加模型的参数和知识容量，而不让每个 Token 都经过全部参数**。主要的方法是 **MoE（Mixture of Expert）**，这个在讲解 Jamba 的时候已经讲过。
+
+下面主要讲解一下 **DeepSeekMoE**：它的目标不是单纯的增加专家（FFN）的数量，**而是让不同专家形成更明确的分工，即 <span style="color: red">Expert Specialization</span>**，它主要改进了传统 MoE 中的两个问题：
+
+- **知识混杂：**单个专家需要同时学习很多**不同类型**的知识
+- **知识冗余：**不同专家**重复**学习语法、常识等通用知识
+
+为了解决这两个问题，DeepSeekMoE 提出了两项核心设计：**<span style="color: red">Fine-Grained Expert Segmentation（细粒度专家拆分）</span> 和 <span style="color: red">Shared Expert Isolation（共享专家隔离）</span>**
+
+
+
+**:a: 细粒度专家拆分（Fine-Grained Expert Segmentation）**
+
+细粒度专家拆分是把一个大型专家拆成 $m$ 个小型专家。
+
+具体的做法是：把每个专家 FFN 的中间隐藏维度缩小到原来的 $1/m$，并将专家数量从 $N$ 增加到 $mN$。由于每个小专家的计算量约为原专家的 $1/m$，所以每个 Token 激活的专家数量也从 $K$ 增加到 $mK$，从而保持总专家参数量和单 Token 计算量基本不变
+
+
+
+**:b: 共享专家隔离（Shared Expert Isolation）**
+
+它对每个 Token 都执行：
+
+```mermaid
+graph LR
+	token --> Shared-Expert:始终执行
+	token --> Router:部分路由专家
+```
 
 
 
@@ -1361,15 +1478,7 @@ $$
 
 ### 3. 系统与计算优化
 
-#### 3.1 Flash Attention
-
-
-
-#### 3.2 KV-Cache
-
-
-
-#### 3.3 请求调度优化（Continuous Batching）
+系统与计算优化通常**不改变 Transformer 的核心建模能力**，而是优化模型在 GPU 上的执行方式、显存管理方式和请求调度方式。，主要包括 **FlashAttention、PagedAttention 和 Continuous Batching**；**FlashAttention** 将 $Q,K,V$ 分块后加载到缓存上，之后再计算局部的 Attention，最后累积输出。**PagedAttention**主要是将 KV-Cache 做分页管理，从而减少显存碎片和浪费。**Continuous Batching** 是对动态调度多个推理请求的优化。
 
 
 
@@ -1377,41 +1486,6 @@ $$
 
 ### 4. 多模态架构扩展
 
-#### 4.1 Vision Transformer：图像理解
-
-
-
-#### 4.2 Swin Transformer：分层视觉建模
-
-
-
-#### 4.3 Diffusion Transformer：扩散生成
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Transformer 块不仅用于文本大模型领域，它还可以用在多模态的领域。经典的应用是：**Vision Transformer、Swin Transformer 和 Diffusion Transformer。** **Vision Transformer（简称 ViT）**会将图像切分成固定大小的 Patch，之后将这个 Patch 去进行 Embedding 和 PE，后续再经过 Transformer 块处。**Swin Transformer（分层视觉建模）** 使用局部窗口，每个窗口内部独立计算一个 Self-Attention。**Diffusion Transformer（简称 DiT）** 是将扩散模型中常用的 **U-Net 去噪网络替换为 Transformer。**DiT 工作在 VAE 的潜空间中：先把图像压缩成较小的 Latent 特征，再将 Latent 切分成 Patch Token，之后交给 Transformer 预测其中的噪声。
 
 
