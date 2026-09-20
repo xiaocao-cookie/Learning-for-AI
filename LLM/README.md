@@ -22,6 +22,30 @@
 最后介绍了 **KV-Cache** 的基本作用，通过对比启用和关闭 KV-Cache 时的文本生成速度，说明它如何复用已经计算过的 Key 和 Value，从而减少重复计算并提升自回归生成效率。
 
 
+## 03_text_classification.ipynb
+
+本 notebook 主要介绍 **大语言模型与表示模型在文本分类任务中的应用**，并以电影评论情感分类为主要案例，对比不同分类方法的实现方式和效果。
+
+内容首先使用 `rotten_tomatoes` 数据集作为实验数据，并介绍 **BERT、RoBERTa、DistilBERT、ALBERT 和 DeBERTa** 等常见 Transformer 表示模型及其主要特点。随后使用针对情感分析微调过的 `cardiffnlp/twitter-roberta-base-sentiment-latest` 模型直接进行分类，并通过 Precision、Recall、F1-score 和 Accuracy 等指标评估模型性能。
+
+接着介绍如何使用 `sentence-transformers/all-mpnet-base-v2` 将文本转换为 **Embedding 向量**，并基于这些向量完成不同形式的文本分类，包括使用 Logistic Regression 的**有监督分类**、通过计算类别中心向量和 Cosine Similarity 的**无监督分类**，以及根据类别文本描述进行匹配的 **Zero-shot Classification（零样本分类）**。
+
+最后介绍如何使用 **生成模型进行文本分类**，通过 `google/flan-t5-small` 将情感分类问题转换为文本生成任务，让模型直接生成 `positive` 或 `negative` 作为分类结果。通过这些实验，本 notebook 展示了文本分类的几种主要思路：**任务专用模型、Embedding + 分类器、Embedding 相似度分类、Zero-shot 分类以及生成式分类**，并比较了不同方法在同一情感分析任务上的表现。
+
+
+## 04_text_clf_and_topic_modeling.ipynb
+
+本 notebook 主要介绍 **Transformer Embedding 在无监督文本学习中的应用**，重点讲解 **文本聚类（Text Clustering）和主题建模（Topic Modeling）** 的基本原理与实现流程。
+
+内容首先以 ArXiv 的 `cs.CL` 论文摘要数据集为例，介绍文本聚类的通用流程：使用 `thenlper/gte-small` 将文本转换为 **Embedding 向量**，再使用 **UMAP** 对高维嵌入进行降维，最后利用 **HDBSCAN** 根据文本之间的语义关系完成聚类。同时系统介绍了 **K-Means、DBSCAN、HDBSCAN 和 GMM** 等常见聚类算法，以及 Homogeneity、Completeness、V-measure、ARI 和 Silhouette Coefficient 等聚类评价指标。
+
+随后从文本聚类进一步过渡到 **BERTopic 主题建模**。BERTopic 延续了 `Embedding → UMAP → HDBSCAN` 的聚类流程，然后利用 **词袋模型和 c-TF-IDF** 从每个聚类中提取具有代表性的关键词，从而将语义相近的文档簇转换为可以解释的主题。Notebook 还展示了主题查询、主题搜索以及文档分布、主题热力图和主题层次关系等多种可视化方法。
+
+最后进一步介绍 BERTopic 的 **模块化主题表示机制**。通过 `KeyBERTInspired` 利用 Embedding 相似度重新排序主题关键词，并使用 **Maximal Marginal Relevance（MMR）** 在关键词相关性与多样性之间进行权衡，从而减少主题词之间的语义冗余。在此基础上，还使用 `Flan-T5` 生成模型作为 BERTopic 的表示模块，根据主题关键词和代表性文档直接生成更加自然的**主题标签**。
+
+通过这些实验，本 notebook 展示了一条完整的无监督文本分析流程：**文本 Embedding → 降维 → 聚类 → BERTopic 主题建模 → c-TF-IDF 主题表示 → KeyBERT/MMR 优化 → 生成模型生成主题标签**，说明了如何从大量未标注文本中自动发现语义结构和潜在主题。
+
+
 
 ## BPE_with_Python.ipynb
 
