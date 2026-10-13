@@ -46,34 +46,6 @@
 通过这些实验，本 notebook 展示了一条完整的无监督文本分析流程：**文本 Embedding → 降维 → 聚类 → BERTopic 主题建模 → c-TF-IDF 主题表示 → KeyBERT/MMR 优化 → 生成模型生成主题标签**，说明了如何从大量未标注文本中自动发现语义结构和潜在主题。
 
 
-## 05_prompt_engineering.ipynb
-
-本 notebook 主要介绍 **生成式大语言模型的使用方式以及 Prompt Engineering（提示词工程）**，重点讲解如何通过模型参数、提示词结构、推理方法和输出约束来提升文本生成质量与可控性。
-
-内容首先以 `microsoft/Phi-3-mini-4k-instruct` 为例，介绍如何使用 Hugging Face Transformers 加载文本生成模型，并通过 `apply_chat_template()` 查看聊天消息在模型内部使用的 Prompt 模板。随后介绍 `temperature` 和 `top_p` 等生成参数，说明它们如何影响 Token 采样过程以及生成文本的随机性和多样性。
-
-接着系统介绍 **Prompt Engineering 的基本组成与高级设计方法**。基础提示词通常由 Instruction、Data 和 Output Indicator 构成，在此基础上进一步扩展出 **Persona、Context、Format、Audience、Tone 和 Data** 等模块，并通过论文总结案例展示不同提示词组合对生成结果的影响。同时介绍 **In-context Learning（上下文内学习）**，包括 Zero-shot、One-shot 和 Few-shot，以及通过 **Prompt Chaining（提示词链）** 将复杂任务拆分成多个连续步骤的方法。
-
-随后进入生成式模型的**推理提示技术**，介绍 **Chain-of-Thought（CoT）**、Zero-shot CoT、**Self-Consistency（自洽性）** 和 **Tree-of-Thought（ToT，思维树）**。这些方法通过增加中间推理步骤、重复采样并选择一致答案，或者并行探索多种解决路径，使模型能够在复杂任务中获得更好的输出结果。
-
-最后介绍 **LLM 输出验证与约束**。Notebook 从 Structured Output、有效性、安全性和准确性等角度说明为什么需要验证模型输出，并比较通过示例、Grammar 和 Fine-tuning 控制输出的方法。随后使用 `llama-cpp-python` 加载 Phi-3 的 GGUF 模型，并利用 **JSON Grammar / `response_format`** 在 Token 生成阶段约束模型，使其稳定生成符合 JSON 格式的结构化结果。
-
-通过这些实验，本 notebook 展示了一条完整的生成式模型使用流程：**模型加载与生成参数控制 → Prompt 基础结构 → 高级 Prompt Engineering → In-context Learning → Prompt Chaining → CoT / Self-Consistency / ToT 推理 → 输出验证与结构化约束**，说明了如何通过提示词和生成控制技术提升 LLM 输出的质量、推理能力与可控性。
-
-
-## 06_advanced_text_generation_tech_and_tools.ipynb
-
-本 notebook 主要介绍 **如何使用 LangChain 和 LangGraph 将单独的大语言模型扩展为具有 Chain、Memory 和 Agent 能力的完整 LLM 应用系统**，重点从模型调用逐步过渡到多步骤工作流、对话记忆以及工具调用。
-
-内容首先介绍 **GGUF 与模型量化（Quantization）**，以 Phi-3-mini 为例说明如何使用较低精度的量化模型减少模型所需的内存和 VRAM，并通过 `llama-cpp-python` 与 LangChain 的 `LlamaCpp` 加载 GGUF 模型。在此基础上使用 `PromptTemplate` 构建 Phi-3 所需要的提示词格式，实现 LangChain 中基本的 Model I/O。
-
-随后介绍 **Chains（链）与 LCEL（LangChain Expression Language）**。通过 `Prompt | LLM | OutputParser` 的方式将多个组件组合起来，并进一步利用 `RunnablePassthrough.assign()` 将复杂任务拆分为多个顺序执行的子任务。例如先根据摘要生成故事标题，再生成角色描述，最后结合这些结果生成完整故事，从而展示 LLM 工作流的组合能力。
-
-接着重点介绍 **Memory（记忆）机制**。Notebook 使用 LangGraph 的 `State`、`Checkpointer` 和 `thread_id` 实现对话状态持久化，并分别演示 **Conversation Buffer、Windowed Conversation Buffer 和 Conversation Summary** 三种经典记忆策略。同时进一步区分 **Short-term Memory（短期记忆）和 Long-term Memory（长期记忆）**，说明短期记忆主要通过 Checkpointer 保存同一会话中的状态，而长期记忆可以通过 Store 保存跨会话共享的语义记忆、情景记忆和程序性记忆。
-
-最后介绍 **Agent 与 ReAct（Reasoning and Acting）框架**。Agent 不再按照固定流程执行任务，而是由 LLM 根据当前问题自行决定下一步需要调用什么工具。Notebook 使用 LangChain 的 `create_agent()` 创建 ReAct Agent，并为其提供 **Apple 官网 MacBook Pro 价格查询工具**和**美元兑换欧元工具**，让 Agent 根据用户需求自动完成信息获取、工具调用和结果整合。同时通过 LangGraph 的 `InMemorySaver` 为 Agent 增加短期记忆，并对比有记忆和无记忆情况下的多轮对话效果。
-
-通过这些实验，本 notebook 展示了一条从基础 LLM 到 Agent 系统的完整扩展路径：**GGUF / Quantization → Model I/O → PromptTemplate → LCEL Chains → Memory → LangGraph State / Checkpointer → Tools → ReAct → Agent**，说明了如何利用 LangChain 和 LangGraph 将语言模型构建成能够执行多步骤任务、保持上下文并调用外部工具的智能应用。
 
 ## BPE_with_Python.ipynb
 
