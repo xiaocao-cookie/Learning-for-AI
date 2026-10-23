@@ -45,6 +45,55 @@
 
 通过这些实验，本 notebook 展示了一条完整的无监督文本分析流程：**文本 Embedding → 降维 → 聚类 → BERTopic 主题建模 → c-TF-IDF 主题表示 → KeyBERT/MMR 优化 → 生成模型生成主题标签**，说明了如何从大量未标注文本中自动发现语义结构和潜在主题。
 
+## 05_prompt_engineering.ipynb
+
+本 notebook 主要介绍 **生成式大语言模型的使用方式以及 Prompt Engineering（提示词工程）**，重点讲解如何通过模型参数、提示词结构、推理方法和输出约束来提升文本生成质量与可控性。
+
+内容首先以 `microsoft/Phi-3-mini-4k-instruct` 为例，介绍如何使用 Hugging Face Transformers 加载文本生成模型，并通过 `apply_chat_template()` 查看聊天消息在模型内部使用的 Prompt 模板。随后介绍 `temperature` 和 `top_p` 等生成参数，说明它们如何影响 Token 采样过程以及生成文本的随机性和多样性。
+
+接着系统介绍 **Prompt Engineering 的基本组成与高级设计方法**。基础提示词通常由 Instruction、Data 和 Output Indicator 构成，在此基础上进一步扩展出 **Persona、Context、Format、Audience、Tone 和 Data** 等模块，并通过论文总结案例展示不同提示词组合对生成结果的影响。同时介绍 **In-context Learning（上下文内学习）**，包括 Zero-shot、One-shot 和 Few-shot，以及通过 **Prompt Chaining（提示词链）** 将复杂任务拆分成多个连续步骤的方法。
+
+随后进入生成式模型的**推理提示技术**，介绍 **Chain-of-Thought（CoT）**、Zero-shot CoT、**Self-Consistency（自洽性）** 和 **Tree-of-Thought（ToT，思维树）**。这些方法通过增加中间推理步骤、重复采样并选择一致答案，或者并行探索多种解决路径，使模型能够在复杂任务中获得更好的输出结果。
+
+最后介绍 **LLM 输出验证与约束**。Notebook 从 Structured Output、有效性、安全性和准确性等角度说明为什么需要验证模型输出，并比较通过示例、Grammar 和 Fine-tuning 控制输出的方法。随后使用 `llama-cpp-python` 加载 Phi-3 的 GGUF 模型，并利用 **JSON Grammar / `response_format`** 在 Token 生成阶段约束模型，使其稳定生成符合 JSON 格式的结构化结果。
+
+通过这些实验，本 notebook 展示了一条完整的生成式模型使用流程：**模型加载与生成参数控制 → Prompt 基础结构 → 高级 Prompt Engineering → In-context Learning → Prompt Chaining → CoT / Self-Consistency / ToT 推理 → 输出验证与结构化约束**，说明了如何通过提示词和生成控制技术提升 LLM 输出的质量、推理能力与可控性。
+
+
+## 06_advanced_text_generation_tech_and_tools.ipynb
+
+本 notebook 主要介绍 **如何使用 LangChain 和 LangGraph 将单独的大语言模型扩展为具有 Chain、Memory 和 Agent 能力的完整 LLM 应用系统**，重点从模型调用逐步过渡到多步骤工作流、对话记忆以及工具调用。
+
+内容首先介绍 **GGUF 与模型量化（Quantization）**，以 Phi-3-mini 为例说明如何使用较低精度的量化模型减少模型所需的内存和 VRAM，并通过 `llama-cpp-python` 与 LangChain 的 `LlamaCpp` 加载 GGUF 模型。在此基础上使用 `PromptTemplate` 构建 Phi-3 所需要的提示词格式，实现 LangChain 中基本的 Model I/O。
+
+随后介绍 **Chains（链）与 LCEL（LangChain Expression Language）**。通过 `Prompt | LLM | OutputParser` 的方式将多个组件组合起来，并进一步利用 `RunnablePassthrough.assign()` 将复杂任务拆分为多个顺序执行的子任务。例如先根据摘要生成故事标题，再生成角色描述，最后结合这些结果生成完整故事，从而展示 LLM 工作流的组合能力。
+
+接着重点介绍 **Memory（记忆）机制**。Notebook 使用 LangGraph 的 `State`、`Checkpointer` 和 `thread_id` 实现对话状态持久化，并分别演示 **Conversation Buffer、Windowed Conversation Buffer 和 Conversation Summary** 三种经典记忆策略。同时进一步区分 **Short-term Memory（短期记忆）和 Long-term Memory（长期记忆）**，说明短期记忆主要通过 Checkpointer 保存同一会话中的状态，而长期记忆可以通过 Store 保存跨会话共享的语义记忆、情景记忆和程序性记忆。
+
+最后介绍 **Agent 与 ReAct（Reasoning and Acting）框架**。Agent 不再按照固定流程执行任务，而是由 LLM 根据当前问题自行决定下一步需要调用什么工具。Notebook 使用 LangChain 的 `create_agent()` 创建 ReAct Agent，并为其提供 **Apple 官网 MacBook Pro 价格查询工具**和**美元兑换欧元工具**，让 Agent 根据用户需求自动完成信息获取、工具调用和结果整合。同时通过 LangGraph 的 `InMemorySaver` 为 Agent 增加短期记忆，并对比有记忆和无记忆情况下的多轮对话效果。
+
+通过这些实验，本 notebook 展示了一条从基础 LLM 到 Agent 系统的完整扩展路径：**GGUF / Quantization → Model I/O → PromptTemplate → LCEL Chains → Memory → LangGraph State / Checkpointer → Tools → ReAct → Agent**，说明了如何利用 LangChain 和 LangGraph 将语言模型构建成能够执行多步骤任务、保持上下文并调用外部工具的智能应用。
+
+
+## 07_semantic_search_and_RAG.ipynb
+
+本 notebook 主要介绍 **语义搜索（Semantic Search）、重排序（Reranking）以及 RAG（Retrieval-Augmented Generation，检索增强生成）** 的基本原理与完整实现流程，重点说明如何通过检索外部知识减少 LLM 幻觉，并提升生成结果的事实准确性。
+
+内容首先介绍 **Dense Retrieval（稠密检索）**。Dense Retrieval 利用 Embedding 将用户 Query 和文档映射到同一个向量空间，再根据向量距离寻找语义最接近的文档。Notebook 以 GLM-5.3 的介绍文档为例，使用智谱 `embedding-3` 生成文本向量，并利用 **FAISS** 构建向量搜索索引，完成 `Embedding → Index → Nearest Neighbor Search` 的语义检索流程。同时介绍 Flat、IVF 和 HNSW 等常见向量索引技术，并使用 **BM25** 实现关键词检索，对比语义搜索与传统关键词搜索之间的区别。
+
+随后分析 **Dense Retrieval 的局限性与优化方法**。当知识库中不存在答案时，Dense Retrieval 仍然可能返回语义距离最近但实际上无关的内容；对于需要精确关键词匹配的场景，则更适合结合 BM25 构建 **Hybrid Search（混合检索）**。Notebook 进一步介绍固定长度、滑动窗口、递归、语义、文档结构和层次化等多种 **Chunking（文本切块）策略**，以及通过正负样本微调 Embedding 模型，使相关 Query 与文档在向量空间中更加接近。
+
+接着介绍 **Reranking（重排序）**。初步检索负责从大量文档中快速召回候选结果，而 Reranker 再对这些候选文档进行更加精确的相关性评分。Notebook 重点介绍基于 **Cross-Encoder** 的重排序方式，即将 Query 和候选文档同时输入模型，计算两者之间的相关性分数，并通过智谱 Rerank API 演示候选文档重新排序的过程。
+
+在检索效果评估部分，Notebook 系统介绍 **Precision@K、Recall@K、MRR、AP、MAP 和 NDCG@K** 等信息检索指标。其中 Precision 和 Recall 分别关注检索结果的准确程度与覆盖程度，MRR 关注第一个相关文档出现的位置，MAP 衡量多个相关文档的整体排序质量，而 **NDCG@K** 进一步考虑文档的多级相关性以及排名位置，尤其适合评估 Reranker 和 RAG 中的排序质量。
+
+随后从语义搜索进一步过渡到 **RAG**。RAG 在检索流程之后增加生成模型，将用户问题和检索得到的相关文档共同提供给 LLM，使模型基于外部知识回答问题。Notebook 使用 `Phi-3-mini-4k` 作为生成模型、`thenlper/gte-small` 作为 Embedding 模型，并通过 LangChain 的 **FAISS VectorStore、Retriever、PromptTemplate 和 LCEL** 构建完整的 RAG Pipeline，实现 **Query → Retriever → Context → Prompt → LLM → Answer** 的基本流程。
+
+在基础 RAG 之上，Notebook 进一步介绍多种 **高级 RAG 技术**，包括通过 LLM 简化和优化用户问题的 **Query Rewriting（查询重写）**、将复杂问题拆分成多个搜索请求的 **Multi-Query RAG**、需要根据前一步结果继续检索的 **Multi-hop RAG**，以及根据问题类型将查询发送到不同知识库或业务系统的 **Query Routing（查询路由）**。
+
+最后系统介绍 **RAG 评估体系**。除了前面介绍的检索和重排序指标之外，还从 Context Precision、Context Recall 等指标评价检索上下文质量；通过 Faithfulness、Answer Relevancy、Answer Correctness 等指标评价生成答案质量；通过 Citation Recall 和 Citation Precision 评价引用质量；并使用 Latency、TTFT、Throughput、Token Usage、Cost per Query 以及 P50/P95/P99 等指标评价 RAG 系统上线后的工程性能。
+
+通过这些实验，本 notebook 展示了一条完整的 RAG 技术路线：**文本切块 → Embedding → FAISS 向量索引 → Dense Retrieval / BM25 → Hybrid Search → Reranking → 检索评估 → Retriever → Context → LLM → RAG → Query Rewriting / Multi-Query / Multi-hop / Routing → RAG 全链路评估**，说明了如何从基础语义搜索逐步构建一个具有较高检索质量、事实准确性和工程可评估性的 RAG 系统。
 
 
 ## BPE_with_Python.ipynb
