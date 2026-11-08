@@ -1322,7 +1322,7 @@ RecursionError: maximum recursion depth exceeded
 
 - ***浅拷贝* 构造一个新的复合对象，然后（在尽可能的范围内）将原始对象中找到的对象的 *引用* 插入其中**
 
-- ***深拷贝*构造一个新的复合对象，然后，<span style='color: blue'>递归地</span>将在原始对象里找到对象的 *副本* 插入其中**
+- ***深拷贝* 构造一个新的复合对象，然后，<span style='color: blue'>递归地</span>将在原始对象里找到对象的 *副本* 插入其中**
 
   
 
@@ -2530,7 +2530,7 @@ def my_cache(func):
 
 @my_cache
 def factorial(n):
-    return n*factorial(n-1) if n>1 else 1
+    return n*factorial(n-1) if n>1 else 1s
 ```
 
 
