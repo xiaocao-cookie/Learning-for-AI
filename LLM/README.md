@@ -96,6 +96,23 @@
 通过这些实验，本 notebook 展示了一条完整的 RAG 技术路线：**文本切块 → Embedding → FAISS 向量索引 → Dense Retrieval / BM25 → Hybrid Search → Reranking → 检索评估 → Retriever → Context → LLM → RAG → Query Rewriting / Multi-Query / Multi-hop / Routing → RAG 全链路评估**，说明了如何从基础语义搜索逐步构建一个具有较高检索质量、事实准确性和工程可评估性的 RAG 系统。
 
 
+## 08_multimodal_large_language_model.ipynb
+
+本 notebook 主要介绍 多模态大语言模型（Multimodal Large Language Model，MLLM）的核心架构与关键技术，重点讲解模型如何理解图像、文本等不同模态的信息，以及如何进一步生成文本、图像、视频和音频等内容。Notebook 将主流多模态模型架构划分为四个层级：模态编码层（Modality Encoder）→ 模态对齐层（Projector/Adapter）→ 多模态融合层（LLM）→ 多模态生成与输出层（Output），并围绕这四层展开详细分析。
+
+内容首先介绍 Vision Transformer（ViT） 的基本原理，说明如何通过 Image Patches、Patch Embedding 和 Transformer Encoder 将图像转换为视觉特征。随后进入多模态编码与嵌入技术，重点介绍 CLIP、SigLIP、SigLIP2、DINOv2 和 DINOv3 等视觉编码模型。其中 CLIP 利用双编码器和对比学习实现图文语义对齐，并通过 Hugging Face Transformers 演示文本与图像 Embedding 的生成及相似度计算；SigLIP 使用 Sigmoid Loss 改进图文匹配训练，SigLIP2 进一步增强多语言理解、局部定位和密集视觉特征；DINOv2 则通过 Teacher-Student 自蒸馏、DINO Loss 和 iBOT Loss 学习通用视觉表示，DINOv3 进一步使用 Gram Anchoring 改善密集视觉特征的质量。
+
+接着重点介绍 模态对齐层（Modality Alignment），说明如何将视觉编码器提取的特征转换为 LLM 能够理解和利用的表示。Notebook 将对齐技术划分为三类：投影映射（Linear Projection、MLP Projector）、查询对齐（Q-Former、Perceiver Resampler）以及空间压缩与重采样（Pixel Shuffle、Token Merging 等）。其中重点分析 BLIP-2 中的 Q-Former，讲解 Learnable Queries、Self-Attention、Cross-Attention 的工作机制，以及 BLIP-2 如何通过两个预训练阶段完成视觉语言表示学习和视觉到语言的生成学习。随后使用 Salesforce/blip2-opt-2.7b 演示图像预处理、图像描述生成、视觉问答和基于 ipywidgets 的交互式多模态 Chatbot，并进一步介绍 Flamingo 中的 Perceiver Resampler 如何利用固定数量的 Latent Queries 压缩视觉 Token。
+
+随后介绍 多模态融合层（Multimodal Fusion），其核心任务是让图像、文本、音频和视频等不同模态的信息进行交互，使 LLM 能够完成联合理解与推理。Notebook 概述了 Token Concatenation/Interleaving、Self-Attention Fusion、Cross-Attention Fusion、Gated Fusion、Hierarchical Fusion 和 Spatiotemporal Fusion 等主要融合机制，说明不同模态的特征如何参与注意力计算，并建立跨模态语义关联。
+
+在多模态生成与输出层，Notebook 从文本生成、图像/视频生成和音频生成三个方向介绍核心技术。文本生成部分重点讲解 LM Head 如何将 Transformer 输出的 Hidden States 映射为词表 Logits，再通过 Token 选择与解码生成文本。图像生成部分介绍两条主要技术路线：基于 Visual Tokenizer、VQ-VAE、Autoregressive Transformer 和 VQ Decoder 的离散视觉 Token 生成，以及基于 Diffusion、Flow Matching 和 VAE Decoder 的连续潜空间生成。其中进一步分析 DDPM 的前向加噪与反向去噪过程、DDIM 的加速采样机制，以及 Flow Matching 如何通过学习速度场实现从随机噪声到目标数据的生成。
+
+最后进一步扩展到 视频生成与音频生成。视频生成重点介绍 3D VAE、Diffusion Transformer、Flow Matching、Spatial/Temporal Attention 和 Video VAE Decoder 等技术，说明视频模型如何同时处理空间结构、时间连续性和运动一致性。音频生成则介绍 Autoregressive、Diffusion 和 Hybrid 三条技术路线，以及 Mel-Spectrogram、Audio VAE、EnCodec、DAC、Conformer、Vocoder 和 Audio Decoder 等技术如何共同完成音频表示、声学特征生成与波形重建。
+
+通过这些内容与实验，本 notebook 展示了一条完整的多模态大模型技术路线：ViT → CLIP / SigLIP / DINO 视觉编码 → Linear / MLP / Q-Former / Perceiver Resampler 模态对齐 → Self-Attention / Cross-Attention 多模态融合 → LM Head / Autoregressive / Diffusion / Flow Matching 内容生成 → VQ / VAE / Video VAE / Audio Decoder 模态解码，说明了多模态模型如何从原始图像、文本等输入中提取特征、建立跨模态关联，并最终完成多种模态内容的理解与生成。
+
+
 ## BPE_with_Python.ipynb
 
 使用 Python 实现 Byte Pair Encoding 算法。
